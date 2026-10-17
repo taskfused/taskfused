@@ -1,7 +1,7 @@
 // Copyright 2026 TaskFused. All rights reserved.
 
-// Package taskfused provides durable operation submission and explicit duplicate
-// joining. Execution and crash recovery are planned; this version only queues work.
+// Package taskfused provides durable shared operations with leased, at-least-once
+// execution on one host. External side effects require handler-level idempotency.
 package taskfused
 
 import (
@@ -21,13 +21,16 @@ import (
 )
 
 const MaxInputBytes = 1024 * 1024
-const schemaVersion = 1
+const schemaVersion = 2
 
 var (
-	ErrInvalid   = errors.New("invalid submission")
-	ErrConflict  = errors.New("operation identity already has different input")
-	ErrDuplicate = errors.New("operation exists; joining was not enabled")
-	ErrNotFound  = errors.New("operation not found")
+	ErrInvalid        = errors.New("invalid request")
+	ErrConflict       = errors.New("operation identity already has different input")
+	ErrDuplicate      = errors.New("operation exists; joining was not enabled")
+	ErrNotFound       = errors.New("operation not found")
+	ErrNoWork         = errors.New("no eligible operation")
+	ErrLeaseLost      = errors.New("attempt no longer owns a live lease")
+	ErrPolicyConflict = errors.New("operation identity already has a different retry policy")
 )
 
 // Request identifies an operation within a namespace. Input is compared byte for
@@ -35,26 +38,34 @@ var (
 // JoinExisting permits returning an existing operation with identical input,
 // including after a restart. It never merges work across namespaces or versions.
 type Request struct {
-	Namespace    string `json:"namespace"`
-	Handler      string `json:"handler"`
-	Version      string `json:"version"`
-	Key          string `json:"key"`
-	Input        []byte `json:"input"`
-	JoinExisting bool   `json:"join_existing"`
+	Namespace    string        `json:"namespace"`
+	Handler      string        `json:"handler"`
+	Version      string        `json:"version"`
+	Key          string        `json:"key"`
+	Input        []byte        `json:"input"`
+	JoinExisting bool          `json:"join_existing"`
+	MaxAttempts  int           `json:"max_attempts"`
+	RetryDelay   time.Duration `json:"retry_delay"`
 }
 
-// Operation is a durable record. Queued is the only state in this milestone.
+// Operation is a durable record. Result is populated only on success.
 // Input is encoded as base64 by encoding/json, preserving arbitrary bytes.
 type Operation struct {
-	ID          string    `json:"id"`
-	Namespace   string    `json:"namespace"`
-	Handler     string    `json:"handler"`
-	Version     string    `json:"version"`
-	Key         string    `json:"key"`
-	Input       []byte    `json:"input"`
-	InputSHA256 string    `json:"input_sha256"`
-	State       string    `json:"state"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID           string        `json:"id"`
+	Namespace    string        `json:"namespace"`
+	Handler      string        `json:"handler"`
+	Version      string        `json:"version"`
+	Key          string        `json:"key"`
+	Input        []byte        `json:"input"`
+	InputSHA256  string        `json:"input_sha256"`
+	State        string        `json:"state"`
+	CreatedAt    time.Time     `json:"created_at"`
+	AttemptCount int           `json:"attempt_count"`
+	MaxAttempts  int           `json:"max_attempts"`
+	RetryDelay   time.Duration `json:"retry_delay"`
+	Result       []byte        `json:"result,omitempty"`
+	LastError    string        `json:"last_error,omitempty"`
+	CompletedAt  *time.Time    `json:"completed_at,omitempty"`
 }
 
 type Submission struct {
@@ -65,7 +76,10 @@ type Submission struct {
 // Store owns a connection to one local SQLite database. Independent Store
 // instances may submit concurrently on the same host. Network filesystems and
 // distributed operation are outside this prototype's supported deployment model.
-type Store struct{ db *sql.DB }
+type Store struct {
+	db  *sql.DB
+	now func() time.Time // Fixed on open; replace only before use in deterministic tests.
+}
 
 // Open creates or opens a database, verifies its schema and runs initial setup.
 // It uses WAL mode and FULL synchronization. WAL and SHM sidecars may exist while
@@ -92,7 +106,7 @@ func Open(ctx context.Context, path string) (*Store, error) {
 	}
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
-	s := &Store{db: db}
+	s := &Store{db: db, now: time.Now}
 	if err := s.migrate(ctx); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("open taskfused: %w", err)
@@ -156,6 +170,11 @@ PRAGMA user_version = 1;`); err != nil {
 	if application != "taskfused" {
 		return errors.New("database application marker is not taskfused")
 	}
+	if version < 2 {
+		if err := migrateV2(ctx, tx); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
 }
 
@@ -173,14 +192,16 @@ func validate(r Request) error {
 	return nil
 }
 
-const columns = "id, namespace, handler, handler_version, operation_key, input, input_sha256, state, created_at"
+const identityColumns = "id, namespace, handler, handler_version, operation_key, input, input_sha256, state, created_at"
+const columns = identityColumns + ", attempt_count, max_attempts, retry_base_ns, result, last_error, completed_at"
 
 type scanner interface{ Scan(...any) error }
 
 func scanOperation(row scanner) (Operation, error) {
 	var op Operation
 	var created string
-	if err := row.Scan(&op.ID, &op.Namespace, &op.Handler, &op.Version, &op.Key, &op.Input, &op.InputSHA256, &op.State, &created); err != nil {
+	var completed sql.NullString
+	if err := row.Scan(&op.ID, &op.Namespace, &op.Handler, &op.Version, &op.Key, &op.Input, &op.InputSHA256, &op.State, &created, &op.AttemptCount, &op.MaxAttempts, &op.RetryDelay, &op.Result, &op.LastError, &completed); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Operation{}, ErrNotFound
 		}
@@ -191,6 +212,13 @@ func scanOperation(row scanner) (Operation, error) {
 	if err != nil {
 		return Operation{}, fmt.Errorf("invalid stored timestamp: %w", err)
 	}
+	if completed.Valid {
+		t, err := time.Parse(time.RFC3339Nano, completed.String)
+		if err != nil {
+			return Operation{}, err
+		}
+		op.CompletedAt = &t
+	}
 	return op, nil
 }
 
@@ -199,6 +227,10 @@ func scanOperation(row scanner) (Operation, error) {
 // from payload similarity. Join events are not recorded as execution attempts.
 func (s *Store) Submit(ctx context.Context, r Request) (Submission, error) {
 	if err := validate(r); err != nil {
+		return Submission{}, err
+	}
+	attempts, delay, err := retryPolicy(r.MaxAttempts, r.RetryDelay)
+	if err != nil {
 		return Submission{}, err
 	}
 	input := append([]byte{}, r.Input...)
@@ -218,6 +250,9 @@ func (s *Store) Submit(ctx context.Context, r Request) (Submission, error) {
 		if string(existing.Input) != string(input) {
 			return Submission{}, ErrConflict
 		}
+		if existing.MaxAttempts != attempts || existing.RetryDelay != delay {
+			return Submission{}, ErrPolicyConflict
+		}
 		if !r.JoinExisting {
 			return Submission{}, ErrDuplicate
 		}
@@ -236,10 +271,10 @@ func (s *Store) Submit(ctx context.Context, r Request) (Submission, error) {
 	op := Operation{
 		ID: "op_" + hex.EncodeToString(random[:]), Namespace: r.Namespace,
 		Handler: r.Handler, Version: r.Version, Key: r.Key, Input: input,
-		InputSHA256: hash, State: "queued", CreatedAt: time.Now().UTC(),
+		InputSHA256: hash, State: "queued", CreatedAt: s.now().UTC(), MaxAttempts: attempts, RetryDelay: delay,
 	}
 	created := op.CreatedAt.Format(time.RFC3339Nano)
-	if _, err := tx.ExecContext(ctx, `INSERT INTO operations (`+columns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, op.ID, op.Namespace, op.Handler, op.Version, op.Key, op.Input, hash, op.State, created); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO operations (`+identityColumns+`, max_attempts, retry_base_ns, next_run_ns) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, op.ID, op.Namespace, op.Handler, op.Version, op.Key, op.Input, hash, op.State, created, attempts, delay.Nanoseconds(), op.CreatedAt.UnixNano()); err != nil {
 		return Submission{}, err
 	}
 	if _, err := tx.ExecContext(ctx, "INSERT INTO events(operation_id, kind, occurred_at) VALUES (?, 'submitted', ?)", op.ID, created); err != nil {

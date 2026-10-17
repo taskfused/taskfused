@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/taskfused/taskfused"
 )
@@ -24,9 +25,9 @@ func main() {
 
 func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: taskfused <submit|get> [flags]; use -h after a command")
+		return fmt.Errorf("usage: taskfused <submit|get|attempts> [flags]; use -h after a command")
 	}
-	if args[0] != "submit" && args[0] != "get" {
+	if args[0] != "submit" && args[0] != "get" && args[0] != "attempts" {
 		return fmt.Errorf("unknown command %q", args[0])
 	}
 	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
@@ -35,11 +36,15 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	namespace := fs.String("namespace", "", "required operation namespace")
 	var handler, version, key, input, id string
 	var join bool
+	var maxAttempts int
+	var retryDelay time.Duration
 	if args[0] == "submit" {
 		fs.StringVar(&handler, "handler", "", "required handler name")
 		fs.StringVar(&version, "version", "", "required handler version")
 		fs.StringVar(&key, "key", "", "required durable operation key")
 		fs.StringVar(&input, "input", "", "UTF-8 input (library API also accepts arbitrary bytes)")
+		fs.IntVar(&maxAttempts, "max-attempts", 3, "maximum execution attempts (1–100)")
+		fs.DurationVar(&retryDelay, "retry-delay", time.Second, "initial exponential retry delay (1ms–1h)")
 		fs.BoolVar(&join, "join", false, "join an existing operation with identical input")
 	} else {
 		fs.StringVar(&id, "id", "", "required operation ID")
@@ -56,7 +61,7 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if *namespace == "" {
 		return fmt.Errorf("-namespace is required")
 	}
-	if args[0] == "get" && id == "" {
+	if args[0] != "submit" && id == "" {
 		return fmt.Errorf("-id is required")
 	}
 	if args[0] == "submit" && (handler == "" || version == "" || key == "") {
@@ -70,7 +75,14 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	encoder := json.NewEncoder(out)
 	encoder.SetIndent("", "  ")
 	if args[0] == "submit" {
-		result, err := store.Submit(ctx, taskfused.Request{Namespace: *namespace, Handler: handler, Version: version, Key: key, Input: []byte(input), JoinExisting: join})
+		result, err := store.Submit(ctx, taskfused.Request{Namespace: *namespace, Handler: handler, Version: version, Key: key, Input: []byte(input), JoinExisting: join, MaxAttempts: maxAttempts, RetryDelay: retryDelay})
+		if err != nil {
+			return err
+		}
+		return encoder.Encode(result)
+	}
+	if args[0] == "attempts" {
+		result, err := store.Attempts(ctx, *namespace, id)
 		if err != nil {
 			return err
 		}

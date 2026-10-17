@@ -26,7 +26,7 @@ application marker, opaque input contract, atomic operation/event acceptance,
 explicit duplicate joining, conflicts, and namespace-qualified lookup. Provide
 submit/get CLI commands. Acceptance: concurrent callers accept one identity,
 conflicting input is refused, and accepted work survives an abrupt process exit.
-The first implementation covers this milestone; see RESUME.md for validation.
+Completed. See RESUME.md for validation.
 
 Sessions 3–4: execution contract and worker core. First settle terminal-state
 joining, retries, cancellation, ownership, and schema migration. Implement handler
@@ -34,6 +34,9 @@ registration, claims, attempts, lease renewal, bounded concurrency, retry backof
 result commit, and expired-lease recovery. Acceptance: restart recovers unfinished
 work and expired attempts cannot renew or commit after losing ownership. Test
 expiry even before a successor claims; do not rely only on matching a token.
+Completed: schema v2, handler registry, bounded worker runner, attempts/tokens,
+renewal, retries, results, and local subprocess/crash checks. Explicit operation
+cancellation remains in the following milestone; worker shutdown is separate.
 
 Sessions 5–6: shared execution. Add waiting with independent caller contexts,
 shared durable result retrieval, and explicit cooperative cancellation. Acceptance:
@@ -68,6 +71,6 @@ introduced. TaskFused owns operation identity and shared execution semantics.
 A first public release requires tested execution/recovery, clear operational
 limits, honest at-least-once semantics, a selected license, CI, reproducible demos,
 and a versioned release procedure. The public repository is a prototype with an
-all-rights-reserved notice; do not label the submission-only milestone as an
-execution-ready release. TaskFused.com can document the prototype once a separate site target is
-provided. Do not create a replacement site or choose hosting implicitly.
+all-rights-reserved notice. Local execution/recovery now exist, but a public
+release still needs the remaining operational and release work. TaskFused.com can
+document the prototype once a separate site target is provided. Do not create a replacement site or choose hosting implicitly.

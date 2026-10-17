@@ -209,6 +209,17 @@ func TestProcessHelper(t *testing.T) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(3)
 	}
+	if os.Getenv("TASKFUSED_TEST_ACTION") == "claim" {
+		c, err := s.Claim(context.Background(), ClaimRequest{Namespace: request().Namespace, Handler: request().Handler, Version: request().Version, LeaseDuration: MinLease})
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(5)
+		}
+		if err := json.NewEncoder(os.Stdout).Encode(c); err != nil {
+			os.Exit(6)
+		}
+		os.Exit(0)
+	}
 	if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
 		os.Exit(4)
 	}
