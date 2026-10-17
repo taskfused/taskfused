@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/taskfused/taskfused"
+	"github.com/taskfused/taskfused/localhttp"
 )
 
 func main() {
@@ -25,7 +26,10 @@ func main() {
 
 func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: taskfused <submit|get|attempts|events|wait|cancel|retry|usage|set-limits|prune-results> [flags]; use -h after a command")
+		return fmt.Errorf("usage: taskfused <submit|get|attempts|events|wait|cancel|retry|usage|set-limits|prune-results|serve> [flags]; use -h after a command")
+	}
+	if args[0] == "serve" {
+		return serve(ctx, args[1:], errOut)
 	}
 	switch args[0] {
 	case "submit", "get", "attempts", "events", "wait", "cancel", "retry", "usage", "set-limits", "prune-results":
@@ -196,4 +200,33 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		return err
 	}
 	return encoder.Encode(result)
+}
+
+// serve leaves handler registration/execution to a separate embedding worker.
+func serve(ctx context.Context, args []string, errOut io.Writer) error {
+	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	path := fs.String("db", "taskfused.db", "local SQLite database path")
+	address := fs.String("listen", "127.0.0.1:8080", "literal loopback IP:port only")
+	if err := fs.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return nil
+		}
+		return err
+	}
+	if fs.NArg() != 0 {
+		return fmt.Errorf("unexpected positional arguments")
+	}
+	listener, err := localhttp.Listen(*address)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+	store, err := taskfused.Open(ctx, *path)
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+	fmt.Fprintln(errOut, "TaskFused local status: http://"+listener.Addr().String())
+	return localhttp.Serve(ctx, store, listener)
 }

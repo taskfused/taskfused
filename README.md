@@ -11,7 +11,8 @@ recover expired attempts without changing the operation ID or input.
 renewal, worker concurrency, retries, stored results, crash recovery, shared waiting,
 explicit operation cancellation, failed-operation retry and paginated event
 inspection, durable admission limits and bounded result pruning exist. HTTP
-endpoints, a UI and multi-host coordination are not implemented. External effects require
+endpoints and a read-only status page are available on loopback. Multi-host
+coordination is not implemented. External effects require
 handler-level idempotency; arbitrary exactly-once execution is not promised.
 
 ## End-to-end demonstration and measurements
@@ -72,6 +73,20 @@ Successful empty results may omit the result field; inspect state and
 result_pruned to distinguish an empty success from a deliberately removed result. Retry policies are set at submission with `-max-attempts` (default 3) and
 `-retry-delay` (default 1s). Go/JSON duration fields are integer nanoseconds; CLI
 duration flags accept strings such as `50ms`. Retrying does not change input.
+
+## Local HTTP and status page
+
+```sh
+./taskfused serve -db demo.db -listen 127.0.0.1:8080
+```
+
+Open http://127.0.0.1:8080/ to inspect namespace usage and an operation ID. The
+read-only page shows state, result availability/pruning and event history. Start a
+registered worker separately to execute submissions. JSON APIs support submit,
+get, wait, attempts, events, cancel, retry and usage; limit changes and result
+pruning remain explicit CLI/library actions. Numeric loopback binding and exact
+Host/origin checks are required; this service has no remote authentication.
+See [HTTP routes, examples, bounds and shutdown behavior](docs/HTTP.md).
 
 ## Capacity and result retention
 

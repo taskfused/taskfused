@@ -264,3 +264,26 @@ func TestStorageCLI(t *testing.T) {
 		}
 	}
 }
+
+func TestServeCLIValidationAndShutdown(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "serve.db")
+	for _, args := range [][]string{{"-listen", "0.0.0.0:8080"}, {"-listen", "localhost:8080"}, {"unexpected"}} {
+		if err := run(context.Background(), append([]string{"serve", "-db", path}, args...), &bytes.Buffer{}, &bytes.Buffer{}); err == nil {
+			t.Fatalf("accepted serve %v", args)
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var stderr bytes.Buffer
+	if err := run(ctx, []string{"serve", "-db", path, "-listen", "127.0.0.1:0"}, &bytes.Buffer{}, &stderr); err == nil {
+		// Open may reject an already-canceled context; either path must return promptly.
+		if !bytes.Contains(stderr.Bytes(), []byte("TaskFused local status:")) {
+			t.Fatal("missing startup address")
+		}
+	} else if !errors.Is(err, context.Canceled) {
+		t.Fatal(err)
+	}
+	if err := run(context.Background(), []string{"serve", "-h"}, &bytes.Buffer{}, &stderr); err != nil {
+		t.Fatal(err)
+	}
+}

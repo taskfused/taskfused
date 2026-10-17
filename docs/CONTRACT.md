@@ -237,3 +237,18 @@ according to transaction order; pruning never initiates execution. It releases n
 identity slots, deletes no input/history/actions and performs no secure erasure or
 file shrinking. Usage reports consistent namespace logical counts and payload
 lengths, not a disk quota. See STORAGE.md for the complete operational contract.
+
+
+## Local transport
+
+The localhttp package and CLI serve command expose existing operation APIs on a
+numeric loopback address only. Worker registration/execution stays separate.
+Namespace remains a label, not authorization. Host/Origin/Fetch Metadata checks,
+JSON mutation bodies and bounded transport/context deadlines constrain the local
+interface; they are not remote authentication. Timeout/disconnect/shutdown cancels
+request contexts, never implicitly cancels operations. Commit acknowledgment can
+still be uncertain, so resolve Submit/retry with their durable identities.
+Succeeded/failed/canceled Wait outcomes return HTTP200; result_pruned remains
+explicit. Policy changes and pruning have no HTTP mutation route. The status page
+is read-only and escapes operation text. See HTTP.md for route/error mappings,
+limits, shutdown ownership and verification limits. Schema remains v5.

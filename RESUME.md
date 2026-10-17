@@ -1,10 +1,10 @@
 # Resume TaskFused
 
-Updated: 2026-10-17. Completed milestone: storage admission and result retention.
+Updated: 2026-10-17. Completed milestone: loopback HTTP and local status page.
 
 ## Read first
 
-Read README.md, docs/CONTRACT.md, docs/DEVELOPMENT_PLAN.md, docs/MEASUREMENTS.md and docs/STORAGE.md.
+Read README.md, docs/CONTRACT.md, docs/DEVELOPMENT_PLAN.md, docs/MEASUREMENTS.md, docs/STORAGE.md and docs/HTTP.md.
 Repository: https://github.com/taskfused/taskfused. Intended site: TaskFused.com;
 no website repository/hosting target has been provided. Work is authorized on this
 code repository. No release license is selected; NOTICE reserves rights.
@@ -21,8 +21,8 @@ retry uses durable idempotent action keys and observed failure counts, grants up
 100 additional claims per action (1000 lifetime total), and does not reset ownership.
 Events are namespace-qualified and paginated. Read the contract before changes.
 
-CLI: submit/get/attempts/events/wait/cancel/retry/usage/set-limits/prune-results. The example worker supports echo
-and a deterministic first-attempt failure flag. No HTTP/UI, multi-host support or public release exists. Namespace is not authentication. Go/CGO and a C
+CLI: submit/get/attempts/events/wait/cancel/retry/usage/set-limits/prune-results/serve. The example worker supports echo
+and a deterministic first-attempt failure flag. A loopback HTTP API and read-only status page exist; no multi-host support or public release exists. Namespace is not authentication. Go/CGO and a C
 compiler are required. Stop older processes before schema upgrades; mixed-version workers are unsupported.
 
 ## New runnable harness
@@ -127,18 +127,52 @@ failure rollback, bounded batches, restart,201-row migration and rollback, and C
 The race suite includes the existing real-process crash/demo harness. Previous
 measurement artifacts are unchanged; no new throughput/file-shrink claim is made.
 
+## Local HTTP milestone completed
+
+localhttp.Listen validates a literal loopback IP:port before binding. Serve also
+validates its supplied listener. CLI serve defaults to 127.0.0.1:8080, permits port
+zero and prints the actual URL. NewHandler requires the bound numeric authority.
+Exact Host, optional Origin and Fetch Metadata checks constrain browser access;
+responses include no CORS permission, no-store, nosniff and CSP. This is not
+authentication: local processes can access all namespaces. No remote deployment.
+
+APIs: POST /api/namespaces/N/operations, GET operation/attempts/events/wait,
+POST operation/cancel or /retry, GET namespace/usage. Mutation bodies are single
+application/json objects with unknown-field rejection. Input/result use base64;
+retry_delay is integer nanoseconds; Wait timeout is a duration string up to 30s.
+Body cap is 2 MiB; normal request context is 5s. Transport settings are read-header
+3s, read 5s, write 35s, idle 30s and MaxHeaderBytes 16 KiB. JSON error statuses are
+400/403/404/405/409/413/415/429/503/504/500. Terminal execution failure/cancellation
+is HTTP 200 with explicit state. Pruned results preserve the marker. No policy or
+prune mutation routes, implicitly started workers or schema changes.
+
+The root page is read-only HTML: namespace usage, optional operation lookup,
+state/result availability and first 50 events. No external assets, JavaScript or
+auto-refresh. Stored text is escaped. Usage/operation/events are separate reads.
+HTTP waits share core pollers and never cancel work on timeout/disconnect.
+Server context cancellation reaches requests, stops the listener and allows up to
+5s to drain before closing connections. Embedded Serve owns the listener but not
+the Store; CLI closes its Store after serving returns.
+
+Local vet, full race tests and build passed, including real HTTP/SQLite operations,
+capacity/retry replay, failed/canceled/pruned outcomes, namespace/event inspection,
+validation, browser boundaries, escaped HTML and real TCP shutdown with a pending
+wait. The process-crash/demo suite remains passing. Browser rendering could not be
+visually verified because no browser executable is installed; HTML checks passed.
+No new performance claim. docs/HTTP.md has the complete contract and examples.
+
 ## Exact next step
 
-Add a small loopback-only HTTP interface and read-only local status page on top of
-these APIs. Define explicit request/response/error mapping, body/time limits and
-shutdown behavior first. Use no remote binding or authentication assumptions;
-namespace labels are not authorization. Include usage and clear pruned-result
-states; keep limit changes and pruning explicit administrative actions. Test HTTP
-submission/join/wait/cancel/retry and shutdown without weakening the core contract.
-Keep arbitrary shell jobs, workflow graphs, multi-host execution and automatic
-fusion deferred. Broaden operational disk/IO fault handling as justified; the
-logical admission controls are not filesystem quotas. A website/release still
-needs its explicit target/license. The ten-session estimate is a planning budget.
+Add a reproducible local HTTP demo that launches the server and registered worker,
+shows joined submissions and independent timeouts, kills/replaces the worker,
+and inspects retry/cancellation/pruned results through HTTP. Exercise IPv4 and IPv6
+where available, slow/malformed clients and shutdown/fault boundaries. Include an
+actual browser visual check when a browser runtime is available. Keep the core and
+HTTP contracts stable. Improve error observability without leaking payloads, and
+avoid expanding into remote authentication or hosting by default. Broader disk/IO
+fault injection and release packaging follow; release still needs a chosen license.
+No arbitrary shell jobs, workflow graphs, multi-host execution or automatic fusion.
+TaskFused.com needs its separate site target. The ten-session estimate is a budget.
 
 ## Repository transport and session discipline
 

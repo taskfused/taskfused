@@ -63,13 +63,17 @@ complete; see docs/MEASUREMENTS.md. It checks real process-kill recovery and use
 isolated waiter samples. Shared polling is now measured and implemented. Schema v5 adds durable namespace
 admission limits, usage inspection and bounded succeeded-result pruning while
 retaining exact input/identity/action records. See docs/STORAGE.md. Remaining:
-broaden operational fault tests, then add the local HTTP surface and status page. Latency/storage observations are not release claims.
+broaden operational fault tests and demo coverage. The loopback HTTP surface and
+read-only status page are now implemented; see docs/HTTP.md. Latency/storage observations are not release claims.
 
 Sessions 9–10: usable prototype. Add CLI inspection/retry, minimal HTTP endpoints,
 a local status page, two demos, and runnable documentation. The main demo submits
 100 equivalent report requests, kills a worker, restarts it, and shows attempts and
 shared results. A second demo shows independent work proceeding concurrently.
 Service authentication and a safe default bind address must precede remote use.
+Completed: local HTTP submission/inspection/wait/cancel/retry and read-only status
+page, strict loopback/Host/origin boundary, bounded bodies/deadlines and request
+cancellation on shutdown. Administrative retention/policy remain CLI/library only.
 No public hosting is implied by this milestone.
 
 ## Deliberately deferred
