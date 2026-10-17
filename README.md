@@ -40,6 +40,18 @@ See [the measured baseline and methodology](docs/MEASUREMENTS.md) and
 [the raw report](docs/measurements/2026-10-17-linux-amd64.json). These are development
 observations for one environment, not production capacity or durability promises.
 
+## Run the HTTP recovery demo
+
+```sh
+go run ./examples/demo -http > http-report.json
+```
+
+This starts a loopback server and real worker child processes, then checks joined
+submissions, independent wait timeout, actual worker kill/recovery, cancellation,
+retry replay and pruned-result inspection over HTTP. Retention administration and
+stale worker result rejection use their Go APIs. No external service is needed.
+See [HTTP demo procedure and captured IPv4/IPv6 reports](docs/HTTP_DEMO.md).
+
 ## Try it
 
 Requires Go 1.24 or later, CGO enabled, and a C compiler for the SQLite driver.

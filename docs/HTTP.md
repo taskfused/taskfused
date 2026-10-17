@@ -147,3 +147,15 @@ checks the response, listener closure and unchanged queued operation. Core race
 and process-crash tests still run. A browser executable was unavailable during this
 milestone, so automated HTML checks passed but visual browser rendering remains
 unverified. No new throughput or remote-deployment claim is made.
+
+
+## Run the end-to-end recovery scenario
+
+`go run ./examples/demo -http > http-report.json` launches this interface and real
+worker child processes against private temporary SQLite files. It exercises shared
+submission/waiting, actual worker kill/recovery, cancellation, retry replay, event
+pages, server/client wait deadlines and pruned-result inspection. Explicit pruning
+and stale worker commits stay on the Go API. See HTTP_DEMO.md for boundaries,
+commands and captured IPv4/IPv6 reports. Real slow-header/body tests and IPv6 serving
+coverage now supplement the malformed-body and shutdown tests above. These checks
+do not replace browser visual verification or production load/durability testing.

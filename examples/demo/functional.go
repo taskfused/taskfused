@@ -11,6 +11,19 @@ import (
 	"github.com/taskfused/taskfused"
 )
 
+// operations lets the same correctness scenarios exercise either the embedded
+// Store or the local HTTP transport. Worker-only Complete remains a Go assertion.
+type operations interface {
+	Submit(context.Context, taskfused.Request) (taskfused.Submission, error)
+	Get(context.Context, string, string) (taskfused.Operation, error)
+	Wait(context.Context, string, string) (taskfused.Operation, error)
+	Attempts(context.Context, string, string) ([]taskfused.Attempt, error)
+	Cancel(context.Context, string, string) (taskfused.Cancellation, error)
+	Retry(context.Context, taskfused.RetryRequest) (taskfused.RetryResult, error)
+	Events(context.Context, string, string, taskfused.EventQuery) (taskfused.EventPage, error)
+	Complete(context.Context, taskfused.Claim, []byte) error
+}
+
 type functionalReport struct {
 	Shared       sharedReport       `json:"shared"`
 	Crash        crashReport        `json:"crash"`
@@ -82,7 +95,7 @@ func runFunctional(parent context.Context, executable, path string, n int) (func
 	return functionalReport{Shared: shared, Crash: crash, Cancellation: canceled, Retry: retried}, nil
 }
 
-func checkShared(ctx context.Context, s *taskfused.Store, executable, path string, n int) (sharedReport, error) {
+func checkShared(ctx context.Context, s operations, executable, path string, n int) (sharedReport, error) {
 	submissions := make(chan taskfused.Submission, n)
 	errs := make(chan error, n)
 	var wg sync.WaitGroup
@@ -189,7 +202,7 @@ func checkShared(ctx context.Context, s *taskfused.Store, executable, path strin
 	return result, nil
 }
 
-func checkCrash(ctx context.Context, s *taskfused.Store, executable, path string) (crashReport, error) {
+func checkCrash(ctx context.Context, s operations, executable, path string) (crashReport, error) {
 	submission, err := s.Submit(ctx, demoRequest("crash", "interrupted"))
 	if err != nil {
 		return crashReport{}, err
@@ -238,7 +251,7 @@ func checkCrash(ctx context.Context, s *taskfused.Store, executable, path string
 	return crashReport{KillExit: exit, Attempts: len(history), OldToken: history[0].Token, NewToken: history[1].Token, SameOperation: true, StaleCommitRejected: true, RecoveryMS: milliseconds(elapsed)}, nil
 }
 
-func checkCancellation(ctx context.Context, s *taskfused.Store, executable, path string) (cancellationReport, error) {
+func checkCancellation(ctx context.Context, s operations, executable, path string) (cancellationReport, error) {
 	submission, err := s.Submit(ctx, demoRequest("cancel", "stop-shared-work"))
 	if err != nil {
 		return cancellationReport{}, err
@@ -287,7 +300,7 @@ func checkCancellation(ctx context.Context, s *taskfused.Store, executable, path
 	return cancellationReport{State: record.State, ObservedByHandler: true, DetectionMS: milliseconds(detection), SurvivorSucceeded: true}, nil
 }
 
-func checkRetry(ctx context.Context, s *taskfused.Store, executable, path string) (retryReport, error) {
+func checkRetry(ctx context.Context, s operations, executable, path string) (retryReport, error) {
 	request := demoRequest("retry", "operator-repair")
 	request.MaxAttempts = 1
 	submission, err := s.Submit(ctx, request)

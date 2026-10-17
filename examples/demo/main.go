@@ -47,11 +47,15 @@ type environment struct {
 
 func main() {
 	var childWorker, childSampleDB string
+	var httpDemo bool
+	var httpListen string
 	var sampleWaiters int
 	var sampleDuration time.Duration
 	fs := flag.NewFlagSet("taskfused-demo", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	cfg := configuration{}
+	fs.BoolVar(&httpDemo, "http", false, "run HTTP correctness demo instead of measurements")
+	fs.StringVar(&httpListen, "http-listen", "127.0.0.1:0", "HTTP demo listener (literal loopback IP:port)")
 	fs.IntVar(&cfg.requests, "requests", 100, "equivalent submissions (2–1000)")
 	fs.IntVar(&cfg.storageOperations, "operations", 1000, "distinct operations for sequential storage/latency measurement (1–10000)")
 	fs.IntVar(&cfg.payloadBytes, "payload-bytes", 128, "input/result bytes per measured operation (0–65536)")
@@ -83,6 +87,14 @@ func main() {
 		sample, err = measureWaiting(ctx, childSampleDB, sampleWaiters, sampleDuration)
 		if err == nil {
 			err = json.NewEncoder(os.Stdout).Encode(sample)
+		}
+	case httpDemo:
+		var result httpDemoReport
+		result, err = runHTTPDemo(ctx, cfg.requests, httpListen)
+		if err == nil {
+			encoder := json.NewEncoder(os.Stdout)
+			encoder.SetIndent("", "  ")
+			err = encoder.Encode(result)
 		}
 	default:
 		var result report

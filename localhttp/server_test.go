@@ -109,3 +109,111 @@ func TestShutdownCancelsPendingHTTPWaitWithoutCancelingOperation(t *testing.T) {
 		t.Fatal("listener remained open")
 	}
 }
+
+func TestIPv6LoopbackServingWhenAvailable(t *testing.T) {
+	listener, err := Listen("[::1]:0")
+	if err != nil {
+		t.Skipf("IPv6 loopback unavailable: %v", err)
+	}
+	s, err := taskfused.Open(context.Background(), filepath.Join(t.TempDir(), "ipv6.db"))
+	if err != nil {
+		listener.Close()
+		t.Fatal(err)
+	}
+	defer s.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- Serve(ctx, s, listener) }()
+	defer func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Error(err)
+		}
+	}()
+	transport := &http.Transport{Proxy: nil}
+	defer transport.CloseIdleConnections()
+	client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
+	response, err := client.Get("http://" + listener.Addr().String() + "/api/namespaces/demo/usage")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := io.ReadAll(response.Body)
+	response.Body.Close()
+	if err != nil || response.StatusCode != 200 || !strings.Contains(string(data), `"operations":0`) {
+		t.Fatalf("IPv6 usage: %d %s %v", response.StatusCode, data, err)
+	}
+}
+
+func TestSlowClientsAreBoundedWithoutWritingOperations(t *testing.T) {
+	for _, test := range []struct{ name, request string }{
+		{"header", "POST /api/namespaces/demo/operations HTTP/1.1\r\nHost: "},
+		{"body", "POST /api/namespaces/demo/operations HTTP/1.1\r\nHost: %s\r\nContent-Type: application/json\r\nContent-Length: 100\r\n\r\n{"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			s, err := taskfused.Open(context.Background(), filepath.Join(t.TempDir(), "slow.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer s.Close()
+			listener, err := Listen("127.0.0.1:0")
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			done := make(chan error, 1)
+			go func() { done <- Serve(ctx, s, listener) }()
+			defer func() {
+				cancel()
+				if err := <-done; err != nil {
+					t.Error(err)
+				}
+			}()
+			conn, err := net.DialTimeout("tcp", listener.Addr().String(), time.Second)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer conn.Close()
+			request := test.request
+			if test.name == "body" {
+				request = fmt.Sprintf(request, listener.Addr().String())
+			}
+			if _, err := io.WriteString(conn, request); err != nil {
+				t.Fatal(err)
+			}
+			conn.SetReadDeadline(time.Now().Add(7 * time.Second))
+			response, err := http.ReadResponse(bufio.NewReader(conn), nil)
+			if err != nil {
+				if neterr, ok := err.(net.Error); ok && neterr.Timeout() {
+					t.Fatal("server did not bound stalled client")
+				}
+				if err != io.EOF && err != io.ErrUnexpectedEOF {
+					t.Fatal(err)
+				}
+			} else {
+				response.Body.Close()
+				if response.StatusCode < 400 || response.StatusCode >= 500 {
+					t.Fatalf("stalled request HTTP%d", response.StatusCode)
+				}
+			}
+			usage, err := s.Usage(context.Background(), "demo")
+			if err != nil || usage.Operations != 0 || usage.Events != 0 {
+				t.Fatalf("stalled request wrote records: %+v %v", usage, err)
+			}
+			// A stalled peer must not prevent independent clients from using the service.
+			transport := &http.Transport{Proxy: nil}
+			defer transport.CloseIdleConnections()
+			client := &http.Client{Transport: transport, Timeout: time.Second}
+			res, err := client.Get("http://" + listener.Addr().String() + "/api/namespaces/demo/usage")
+			if err != nil {
+				t.Fatal(err)
+			}
+			res.Body.Close()
+			if res.StatusCode != 200 {
+				t.Fatalf("survivor HTTP%d", res.StatusCode)
+			}
+		})
+	}
+}

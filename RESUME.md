@@ -1,10 +1,10 @@
 # Resume TaskFused
 
-Updated: 2026-10-17. Completed milestone: loopback HTTP and local status page.
+Updated: 2026-10-17. Completed milestone: reproducible HTTP recovery demo.
 
 ## Read first
 
-Read README.md, docs/CONTRACT.md, docs/DEVELOPMENT_PLAN.md, docs/MEASUREMENTS.md, docs/STORAGE.md and docs/HTTP.md.
+Read README.md, docs/CONTRACT.md, docs/DEVELOPMENT_PLAN.md, docs/MEASUREMENTS.md, docs/STORAGE.md, docs/HTTP.md and docs/HTTP_DEMO.md.
 Repository: https://github.com/taskfused/taskfused. Intended site: TaskFused.com;
 no website repository/hosting target has been provided. Work is authorized on this
 code repository. No release license is selected; NOTICE reserves rights.
@@ -161,18 +161,53 @@ wait. The process-crash/demo suite remains passing. Browser rendering could not 
 visually verified because no browser executable is installed; HTML checks passed.
 No new performance claim. docs/HTTP.md has the complete contract and examples.
 
+## HTTP demo milestone completed
+
+Run go run ./examples/demo -http > report.json. It starts localhttp.Serve on an
+actual ephemeral listener in the parent process and registered workers as child
+processes of the same binary. -requests defaults to 100 (2–1000), -http-listen to
+127.0.0.1:0; explicit [::1]:0 runs IPv6 without silently falling back to IPv4. It
+uses private temporary files, a two-minute parent context and joined server/worker
+cleanup before database removal. Default embedded measurements remain unchanged.
+
+A small operations interface lets embedded and HTTP demos share scenario checks.
+The private HTTP adapter sends submissions, reads, waits, attempts, event pages,
+cancellation, retry and usage through HTTP. It bypasses environment proxies and
+bounds response reads, connections and timeouts. Worker-only stale Complete and
+explicit PruneResults use Go APIs, not new HTTP routes. This is not a public SDK.
+
+Both ordinary IPv4/IPv6 runs passed: 100 submissions, one creation, 99 joins,
+99 successful waiters and one client timeout. Worker Process.Kill follows a
+committed-claim acknowledgment. Replacement recovers the same ID with token 1->2;
+stale completion is rejected. Cancellation leaves a survivor working. Retry has
+one grant/replay and six events. A separate queued operation verifies HTTP504
+without changing work, then is explicitly canceled. Pruning four results removes
+52 bytes, retains six identities, seven attempts, one action and 78 input bytes,
+and adds four events (22->26). HTTP markers, duplicate join and retry replay remain
+correct. The server then drains and temporary data is removed.
+
+Reports: docs/measurements/2026-10-17-http-demo-ipv4.json and *-ipv6.json, built from
+parent 6ccaeef with modified=true. Recovery around 1.102s includes the demo's
+one-second lease and polling; no SLA or throughput comparison is claimed. Earlier
+reports remain unchanged. Full local vet, race tests and build passed. CI tests
+the 100-request HTTP demo with actual killed race-instrumented workers. Real socket
+tests add IPv6 when available and stalled headers/bodies that must time out without
+writing records or blocking other clients. Browser visual verification remains
+unavailable because no browser binary is installed.
+
 ## Exact next step
 
-Add a reproducible local HTTP demo that launches the server and registered worker,
-shows joined submissions and independent timeouts, kills/replaces the worker,
-and inspects retry/cancellation/pruned results through HTTP. Exercise IPv4 and IPv6
-where available, slow/malformed clients and shutdown/fault boundaries. Include an
-actual browser visual check when a browser runtime is available. Keep the core and
-HTTP contracts stable. Improve error observability without leaking payloads, and
-avoid expanding into remote authentication or hosting by default. Broader disk/IO
-fault injection and release packaging follow; release still needs a chosen license.
-No arbitrary shell jobs, workflow graphs, multi-host execution or automatic fusion.
-TaskFused.com needs its separate site target. The ten-session estimate is a budget.
+Complete an operational fault milestone before release packaging: inject SQLite
+write/commit failures around submission, claims, result commits, retry actions and
+retention, checking rollback, uncertain acknowledgments, recovery and external
+idempotency boundaries. Include practical disk-full/read-only/lock-contention
+behavior where reproducible; logical admission is not a disk quota. Add internal
+error observability without leaking payloads, then review release-readiness against
+the original contract and report concrete remaining gaps. Keep the local HTTP/API
+contracts stable. Public release still needs a chosen license and website work
+still needs a separate site target. Do not add remote hosting/auth, arbitrary shell
+jobs, workflow graphs, multi-host or automatic fusion by default. Browser rendering
+can be checked once a browser runtime exists. The ten-session estimate is a budget.
 
 ## Repository transport and session discipline
 

@@ -110,3 +110,39 @@ func TestWaitingMeasurementRejectsInvalidBounds(t *testing.T) {
 		t.Fatal("accepted invalid sample duration")
 	}
 }
+
+func TestHTTPDemoWithActualWorkerKillAndRetention(t *testing.T) {
+	t.Setenv("TASKFUSED_DEMO_TEST_CHILD", "1")
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	result, err := runHTTPDemo(ctx, 100, "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	shared := result.Functional.Shared
+	if shared.NewOperations != 1 || shared.Joined != 99 || shared.SuccessfulWaiters != 99 || shared.TimedOutWaiters != 1 || shared.Attempts != 1 {
+		t.Fatalf("HTTP shared work: %+v", shared)
+	}
+	crash := result.Functional.Crash
+	if crash.KillExit == "" || crash.Attempts != 2 || !crash.SameOperation || !crash.StaleCommitRejected || crash.NewToken <= crash.OldToken {
+		t.Fatalf("HTTP crash: %+v", crash)
+	}
+	if !result.Functional.Cancellation.ObservedByHandler || !result.Functional.Cancellation.SurvivorSucceeded || result.Functional.Retry.Events != 6 {
+		t.Fatalf("HTTP operations: %+v", result.Functional)
+	}
+	retention := result.Retention
+	if retention.PrunedResults != 4 || retention.MarkersObserved != 4 || retention.RemovedBytes != 52 || !retention.RetryReplayPreserved || retention.After.ResultBytes != 0 || retention.After.Operations != 6 || retention.After.Attempts != 7 || retention.After.Events != 26 {
+		t.Fatalf("HTTP retention: %+v", retention)
+	}
+	if !result.ServerWaitDeadline || result.HTTPStatuses[504] != 1 || !result.ShutdownCompleted {
+		t.Fatalf("HTTP boundary: %+v", result)
+	}
+}
+
+func TestHTTPDemoRejectsWorkloadBounds(t *testing.T) {
+	for _, n := range []int{0, 1, 1001} {
+		if _, err := runHTTPDemo(context.Background(), n, "127.0.0.1:0"); err == nil {
+			t.Fatalf("accepted requests=%d", n)
+		}
+	}
+}
