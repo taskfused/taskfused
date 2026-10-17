@@ -58,7 +58,11 @@ failures, with clear handling of uncertain acceptance and external idempotency.
 Operator retry/event inspection is now implemented in schema v4: failed-only
 actions with durable idempotency, immutable original policy, monotonic ownership,
 a lifetime claim cap, cycle-relative backoff and bounded live event pages.
-Remaining: reproducible full demo, measurements, retention and broader limits.
+A runnable self-reexecuting Go harness and the first measured baseline are now
+complete; see docs/MEASUREMENTS.md. It checks real process-kill recovery and uses
+isolated waiter samples. Remaining: improve measured polling overhead, define
+capacity/payload retention without breaking identity/action idempotency, and
+broaden operational testing. Latency/storage observations are not release claims.
 
 Sessions 9–10: usable prototype. Add CLI inspection/retry, minimal HTTP endpoints,
 a local status page, two demos, and runnable documentation. The main demo submits

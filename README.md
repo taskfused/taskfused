@@ -14,6 +14,31 @@ inspection exist. HTTP endpoints, a UI, retention, and multi-host coordination
 are not implemented. External effects require
 handler-level idempotency; arbitrary exactly-once execution is not promised.
 
+## End-to-end demonstration and measurements
+
+```sh
+go run ./examples/demo > report.json
+```
+
+One command checks 100 equivalent submissions sharing one operation/result, an
+isolated wait timeout, an actual worker process kill and recovery, cooperative
+cancellation with surviving work, and an idempotent operator retry with event
+inspection. The harness re-executes itself for worker processes; it never executes
+submitted commands. Progress goes to stderr and the JSON report goes to stdout.
+Any failed correctness check makes the command fail. Temporary databases are
+removed after cleanup; the report retains their logical size snapshots.
+
+It then measures 1000 sequential durable submissions and trivial executions with
+128-byte input/results, plus three fresh-process samples each with 0, 1 and 100
+waiters. Parameters are shown by `go run ./examples/demo -h`. Timing runs should
+use an ordinary binary; race builds are for correctness validation. CPU and Go
+allocation measurements include waiter setup/teardown, and native SQLite memory
+is not included in Go allocation totals.
+
+See [the measured baseline and methodology](docs/MEASUREMENTS.md) and
+[the raw report](docs/measurements/2026-10-17-linux-amd64.json). These are development
+observations for one environment, not production capacity or durability promises.
+
 ## Try it
 
 Requires Go 1.24 or later, CGO enabled, and a C compiler for the SQLite driver.

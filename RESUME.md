@@ -1,91 +1,104 @@
 # Resume TaskFused
 
-Updated: 2026-10-17. Completed milestone: operator retry and event inspection.
+Updated: 2026-10-17. Completed milestone: runnable demo and measured baseline.
 
 ## Read first
 
-Read README.md, docs/CONTRACT.md, and docs/DEVELOPMENT_PLAN.md. Repository:
-https://github.com/taskfused/taskfused. Intended site: TaskFused.com; no website
-repository or hosting target has been provided. Work is authorized on this code
-repository. No release license is selected; NOTICE reserves rights.
+Read README.md, docs/CONTRACT.md, docs/DEVELOPMENT_PLAN.md and docs/MEASUREMENTS.md.
+Repository: https://github.com/taskfused/taskfused. Intended site: TaskFused.com;
+no website repository/hosting target has been provided. Work is authorized on this
+code repository. No release license is selected; NOTICE reserves rights.
 
-## Current implementation
+## Current engine
 
-Milestones 1–3 supply durable shared operations, immutable identity/input/policy,
-local SQLite, namespace-qualified reads, lease ownership and increasing tokens,
-bounded automatic retries, attempt/result history, crash recovery, shared waiting,
-and explicit cooperative cancellation. Workers expose RunOnce and bounded Run.
-Wait is read-only 100ms polling across processes. Cancel revokes database ownership,
-not external effects; sibling work continues. See the contract for terminal races.
+The core remains schema v4. It supports durable explicit-identity submissions,
+duplicate joining, immutable input/original policy, local SQLite WAL/FULL, leased
+at-least-once attempts with increasing tokens, bounded retries and backoff, durable
+results/history, process-crash recovery, shared waiting and cooperative cancellation.
+Wait contexts do not cancel work. Cancel revokes database authority, not external
+effects; canceled/succeeded work stays terminal. Explicit failed-only operator
+retry uses durable idempotent action keys and observed failure counts, grants up to
+100 additional claims per action (1000 lifetime total), and does not reset ownership.
+Events are namespace-qualified and paginated. Read the contract before changes.
 
-Milestone 4 adds schema v4, explicit failed-operation Retry, Events pagination,
-CLI retry/events and eligibility/budget fields in get. Original MaxAttempts remains
-immutable; AttemptLimit is the lifetime limit (initially MaxAttempts), and
-RetryCycleStart restarts backoff without resetting attempt numbers/tokens.
+CLI: submit/get/attempts/events/wait/cancel/retry. The example worker supports echo
+and a deterministic first-attempt failure flag. No HTTP/UI, retention, multi-host
+support or public release exists. Namespace is not authentication. Go/CGO and a C
+compiler are required. This milestone changes the demo/docs, not engine semantics.
 
-Retry requires an operation-scoped action key, observed failed attempt count and
-1–100 additional claims, capped at 1000 lifetime claims. Only failed work can be
-reopened by a new action. State/budget/action/event update atomically. Repeating an
-action returns its original grant and current operation with Applied=false, even
-after another failure, success, cancellation or restart. Changed parameters conflict;
-stale new actions cannot target a later failed count. Canceled work stays terminal.
+## New runnable harness
 
-Event pages default to 50, max 200, with exclusive global sequence cursors and
-live append semantics. Retry events include the original grant metadata. The
-example worker's -fail-until-attempt flag gives deterministic failure/retry demos;
-it defaults off and never evaluates input as code. CLI commands are
-submit/get/attempts/events/wait/cancel/retry. The store supports one host/local
-filesystem, needs CGO/a C compiler, and migrates v1–v3 transactionally to v4.
+Run `go run ./examples/demo > report.json`, or build examples/demo first.
+The harness re-executes its own binary; it needs no installed worker executable.
+It checks 100 equivalent submissions/99 successful waiters/one isolated timeout,
+actual Process.Kill recovery, stale-result rejection, cooperative cancellation with
+surviving work, idempotent operator retry and complete paginated events. A worker
+confirms its committed claim before the parent kills it. Stdin EOF is used only
+for graceful cleanup, never as the crash mechanism.
 
-No HTTP/UI, retention, multi-host support or public release exists. There are no
-performance/compression/scale claims. Namespace is not authentication.
+Default measurements: 1000 sequential unique submissions and trivial RunOnce
+executions with 128-byte input/results; live and closed main/WAL/SHM sizes; three
+isolated process samples each at zero/one/100 waiters for one second. CPU uses
+process getrusage on Linux/macOS; other platforms report it unavailable. Go
+allocation churn excludes SQLite/native allocations. Wait SQL-read counts are not
+instrumented. All databases are private temporary files removed after cleanup.
+Workload input bytes are capped at 64 MiB. Progress is stderr; report JSON is stdout.
+
+## Observed baseline
+
+See docs/MEASUREMENTS.md and docs/measurements/2026-10-17-linux-amd64.json for exact
+values, environment, method, all samples and caveats. This is an ordinary Linux
+amd64/Go 1.26.1/SQLite 3.50.4 build in temporary storage whose physical backend was
+not characterized, not a capacity/SLA or durability qualification.
+
+Observed p50: Submit 1.007ms; trivial RunOnce 2.131ms. Submit maximum was 147.982ms,
+retained in the report with unknown cause. The 1000 completed one-attempt operations
+added 1,392,640 logical bytes after close above an 81,920-byte empty baseline; live
+WAL/SHM footprint was materially larger. Do not treat amortized bytes/op as fixed.
+
+One-second waiting medians: idle 0.193ms process CPU/768 Go allocated bytes;
+one waiter 6.938ms/41,632 bytes; 100 waiters 84.145ms/3,890,088 bytes. No file growth
+or operation/attempt/event mutation was observed. Allocation churn is not retained
+memory. Short-run noise and host activity prevent scale extrapolation.
 
 ## Validation
 
-Milestone 3 GitHub CI passed before this session. Milestone 4 passed locally on
-Linux with Go 1.26.1: go test -race -count=1 ./..., go vet ./..., go build ./...,
-CLI/example builds, formatting and diff checks.
+Milestone 4 GitHub CI passed before this session. Milestone 5 passed local
+race-enabled tests, vet and build on Linux/Go 1.26.1. The new race-tested harness
+integration uses actual child processes, 100 shared requests, real worker kill,
+cooperative cancellation, retry/event inspection, storage record counts, isolated
+waiting samples, workload bounds and nearest-rank percentile checks. No performance
+threshold is asserted in CI. Earlier engine/CLI tests remain passing.
 
-Coverage includes 32 concurrent duplicate actions applying exactly one grant,
-competing distinct actions, replay after later failure/restart/success/cancellation,
-parameter conflicts, stale action rejection, immutable submission policy and joining,
-monotonic attempt/token counters, cycle-relative backoff, lifetime-limit boundaries,
-retry versus cancellation ordering, retry/event rollback, bounded event pagination
-with global gaps and live appends, namespace isolation, old-schema preservation
-and migration rollback. Legacy schema fixtures use fixed-column helpers rather
-than current API projections, so they remain genuine v2/v3 databases. Existing
-execution, cancellation, shared-waiting and crash tests continue to pass.
-
-A CLI/example-worker integration forced the initial one-budget attempt to fail,
-granted one additional attempt, replayed the same action, verified success with
-unchanged identity/input/original policy and a larger token, and traversed all six
-events in two-row pages with correct grant metadata and no duplicates.
+The full ordinary-build default harness ran successfully and produced the committed
+raw report. Its build metadata records the parent revision with modified=true,
+because the measurement was captured before this milestone's commit. Source and
+report are shipped together; future comparisons must identify their code/config.
 
 ## Exact next step
 
-Build a reproducible end-to-end demonstration and measure operational behavior
-before expanding interfaces. Prefer one runnable Go example/test harness showing
-100 equivalent submissions sharing work, isolated waiter timeout, a worker crash
-and recovery, cooperative cancellation, an operator retry, and event inspection.
-Use separate processes where crash behavior is being demonstrated; do not simulate
-recovery with only a graceful close. Keep a clear distinction between one operation
-and multiple at-least-once attempts. Report measured latency, storage growth and
-polling overhead with environment/workload, rather than promised throughput.
+Use the baseline to improve shared waiting before expanding interfaces. The current
+Wait polls per caller even when callers share the same operation. Consider one
+local poller per Store/namespace/operation with independent subscribers, while
+retaining periodic SQLite polling for cross-process changes. Prove independent
+wait cancellation, independent result bytes, no lost wakeups, cleanup when the last
+waiter leaves, Store.Close behavior, and fresh observations after an operator retry
+reopens failed work. Do not leave cached terminal outcomes attached to a later cycle.
+Compare before/after with the existing isolated-process harness and preserve this
+baseline rather than overwriting it. A slower/mixed result is still a valid finding.
 
-Then address practical storage/retention limits and inspection ergonomics. HTTP
-and a local status UI follow the core demo/limits; authentication and safe binding
-must be considered before remote use. Multi-host coordination, automatic graph
-fusion and arbitrary shell execution stay deferred. Revisit the original ten-session
-estimate after these measurements rather than claiming all release gates are met.
+Then add practical storage/capacity and payload-retention controls. Distinguish
+removing payload bytes from deleting identity/action tombstones: deleting those
+records can re-execute an old submission or retry action. Define retention guarantees
+before schema changes. History may be much larger for multi-attempt work than this
+one-attempt storage sample. HTTP/local UI follow these limits; remote use needs an
+explicit authentication/binding design. Multi-host and automatic graph fusion stay
+deferred. The original ten-session estimate is a planning budget, not a release claim.
 
 ## Repository transport and session discipline
 
-The GitHub connector writes this repository; direct HTTPS git push has no CLI
-credentials here. Publish verified files with connector tree/commit/ref operations
-and the expected remote head. Fetch and compare staged/remote trees before aligning
-local HEAD. Never overwrite unseen changes. Read UTF-8 files in small batches when
-passing tree content; a full-repository JSON dump can exceed output limits.
-
-Keep each change scoped to a coherent milestone and update this file with observed
-checks and remaining behavior. Do not claim elapsed session hours or exactly-once
-external effects. No license or website work is implied by continuing code.
+Use GitHub connector tree/commit/ref writes with expected remote head; direct git
+push lacks CLI credentials. Read source in small batches to avoid tool-output
+truncation. Fetch and verify staged/remote trees before aligning local HEAD. Never
+overwrite unseen changes. Keep coherent milestones, update these instructions and
+report observed checks. No license or website work is implied by continuing code.
