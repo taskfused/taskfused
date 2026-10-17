@@ -18,9 +18,12 @@ mkdir -p "$out"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
+# Whether the checkout was clean before anything was recorded.
+state="at $(git rev-parse --short HEAD)$(test -z "$(git status --porcelain)" || echo ' plus uncommitted changes')"
+
 header() {
 	echo "# $1"
-	echo "# recorded $(date -u '+%Y-%m-%d %H:%M UTC') at $(git rev-parse --short HEAD)$(test -z "$(git status --porcelain)" || echo ' plus uncommitted changes'), TaskFused $(sed -n 's/^const Version = "\(.*\)"$/\1/p' taskfused.go), $(go version | cut -d' ' -f3-)"
+	echo "# recorded $(date -u '+%Y-%m-%d %H:%M UTC') $state, TaskFused $(sed -n 's/^const Version = "\(.*\)"$/\1/p' taskfused.go), $(go version | cut -d' ' -f3-)"
 	cpu=$(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | cut -d: -f2- | sed 's/^ //' || true)
 	test -n "$cpu" || cpu=$(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo 'unknown CPU')
 	echo "# $(uname -sr), $cpu, $(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo '?') CPUs"
