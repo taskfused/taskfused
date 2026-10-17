@@ -9,7 +9,8 @@ how that works, for whoever (person or Claude session) works on this repo next.
 2. Write what changed into the commit message.
 3. Push the commit to `main`.
 
-When the `test` workflow passes on that commit, the `release` workflow builds the
+When the `test` workflow passes on that commit (the full suite on Linux and macOS,
+and the smoke check on Windows binaries on a Windows runner), the `release` workflow builds the
 binaries, smoke-tests them, then tags the commit `vX.Y.Z` and publishes the
 release "TaskFused vX.Y.Z" with the archives and SHA256SUMS attached. If any build
 or check fails, nothing is tagged and nothing goes public. Fix it, push again,

@@ -12,4 +12,6 @@ commands and their ready-built binaries also contain:
   BSD-style license
   musl libc (Linux binaries only), Copyright 2005-2020 Rich Felker,
   et al., MIT License
+  mingw-w64 runtime (Windows binaries only), Copyright the mingw-w64
+  project, ZPL 2.1 and other permissive licenses
 Their notices are in THIRD_PARTY_LICENSES.md.

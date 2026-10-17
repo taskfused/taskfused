@@ -21,7 +21,9 @@ trap 'rm -rf "$work"' EXIT
 header() {
 	echo "# $1"
 	echo "# recorded $(date -u '+%Y-%m-%d %H:%M UTC') at $(git rev-parse --short HEAD)$(test -z "$(git status --porcelain)" || echo ' plus uncommitted changes'), TaskFused $(sed -n 's/^const Version = "\(.*\)"$/\1/p' taskfused.go), $(go version | cut -d' ' -f3-)"
-	echo "# $(uname -sr), $(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | cut -d: -f2- | sed 's/^ //'), $(nproc 2>/dev/null || echo '?') CPUs"
+	cpu=$(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | cut -d: -f2- | sed 's/^ //' || true)
+	test -n "$cpu" || cpu=$(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo 'unknown CPU')
+	echo "# $(uname -sr), $cpu, $(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo '?') CPUs"
 	echo "# command: $2"
 	echo
 }

@@ -1,3 +1,6 @@
+// Copyright TaskFused.com 2026
+// SPDX-License-Identifier: Apache-2.0
+
 package taskfused
 
 import (
@@ -6,9 +9,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -314,5 +319,22 @@ func TestConcurrentSubmissionsAcrossProcesses(t *testing.T) {
 	}
 	if created != 1 {
 		t.Fatalf("created %d operations", created)
+	}
+}
+
+func TestURIPathKeepsWindowsDriveOutOfAuthority(t *testing.T) {
+	for in, want := range map[string]string{
+		"/var/data/x.db":      "/var/data/x.db",
+		"C:/Users/a/x.db":     "/C:/Users/a/x.db",
+		"D:/data dir/x #1.db": "/D:/data dir/x #1.db",
+	} {
+		got := uriPath(in)
+		if got != want {
+			t.Fatalf("uriPath(%q) = %q, want %q", in, got, want)
+		}
+		u := url.URL{Scheme: "file", Path: got}
+		if s := u.String(); !strings.HasPrefix(s, "file:///") {
+			t.Fatalf("URI for %q has an authority: %s", in, s)
+		}
 	}
 }

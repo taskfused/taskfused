@@ -110,6 +110,18 @@ type Store struct {
 	now       func() time.Time // Fixed on open; replace only before use in deterministic tests.
 }
 
+// uriPath turns an absolute OS path into a SQLite file URI path. A Windows path
+// such as C:\data\x.db becomes /C:/data/x.db, so the URI is file:///C:/... with an
+// empty authority; file://C:/... would put the drive letter in the authority,
+// which SQLite rejects.
+func uriPath(absolute string) string {
+	p := filepath.ToSlash(absolute)
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	return p
+}
+
 // Open creates or opens a database, verifies its schema and runs initial setup.
 // It uses WAL mode and FULL synchronization. WAL and SHM sidecars may exist while
 // open; use SQLite-aware backups rather than copying a live main database file.
@@ -121,7 +133,7 @@ func Open(ctx context.Context, path string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("database path: %w", err)
 	}
-	u := url.URL{Scheme: "file", Path: filepath.ToSlash(absolute)}
+	u := url.URL{Scheme: "file", Path: uriPath(absolute)}
 	q := u.Query()
 	q.Set("_busy_timeout", "5000")
 	q.Set("_journal_mode", "WAL")

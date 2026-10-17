@@ -12,7 +12,8 @@ procedure and the checks to run afterwards.
 
 ## Where things stand
 
-v0.1.0 is the first release (October 2026): Apache 2.0, CI on Linux and macOS,
+v0.1.0 is the first release (October 2026): Apache 2.0, CI on Linux and macOS
+plus a Windows smoke check,
 and automated releases with smoke-tested binaries for Linux, macOS and Windows.
 The code is a single-host Go/SQLite prototype: durable explicit-identity
 submissions, duplicate joining, leased at-least-once attempts, bounded retries,

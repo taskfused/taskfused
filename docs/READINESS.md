@@ -25,9 +25,9 @@ This review is not a production reliability certification.
 | Measurements | Preserved ordinary-build baseline and shared-poller comparison, with explicit workload/host caveats |
 
 The full vet/race/build suite passes on Linux amd64 (recorded in test/results/),
-and the test workflow runs the suite on Linux and macOS with Go 1.26.x and the race
-detector on Linux. Windows is covered by the release smoke check, not the full
-suite. go.mod declares Go 1.24; that minimum is not separately tested. SQLite is
+and the test workflow runs the suite on Linux and macOS with Go 1.26.x, the race
+detector on Linux, and the smoke check on a Windows runner. Windows runs the smoke
+check, not the full suite. go.mod declares Go 1.24; that minimum is not separately tested. SQLite is
 bundled through mattn/go-sqlite3 and requires a C toolchain to build. Schema is v5;
 older processes must stop before migration. No mixed-version rolling upgrade is
 supported. See COMPATIBILITY.md for the version policy.

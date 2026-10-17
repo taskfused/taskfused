@@ -339,7 +339,8 @@ go build ./...
 sh scripts/record-tests.sh   # every test and both demos, written to test/results/
 ```
 
-Every push to `main` runs the tests on Linux and macOS. Raising `Version` in
+Every push to `main` runs the tests on Linux and macOS and the smoke check on
+Windows. Raising `Version` in
 `taskfused.go` releases it: once the tests pass, the release workflow builds the
 binaries for every system, smoke-tests them with `scripts/smoke.py`, then tags the
 commit and publishes the release ([RELEASING.md](RELEASING.md)). See

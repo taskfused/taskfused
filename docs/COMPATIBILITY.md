@@ -12,8 +12,9 @@ smoke check covers submission and joining, a real worker run, waiting, limits an
 pruning, the loopback HTTP API and status page, a clean exit on interrupt, and the
 HTTP recovery demo, which kills a real worker process and recovers its lease.
 
-The test workflow runs the full suite on Linux and macOS, and the race detector on
-Linux. Windows is covered by the release smoke check, not by the full test suite.
+The test workflow runs the full suite on Linux and macOS, the race detector on
+Linux, and the smoke check on Windows binaries on a Windows runner, on every push
+and pull request. Windows runs the smoke check, not the full test suite.
 The macOS and Windows binaries link to the operating system's own C runtime and are
 not signed; macOS may ask you to allow them the first time.
 
