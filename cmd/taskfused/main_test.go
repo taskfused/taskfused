@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -85,5 +86,51 @@ func TestRetryFlagsAndAttemptHistoryCLI(t *testing.T) {
 	var history []taskfused.Attempt
 	if err := json.Unmarshal(out.Bytes(), &history); err != nil || len(history) != 1 || history[0].State != taskfused.StateSucceeded {
 		t.Fatalf("history: %+v %v", history, err)
+	}
+}
+
+func TestWaitTimeoutAndExplicitCancelCLI(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cli.db")
+	var out, errOut bytes.Buffer
+	if err := run(context.Background(), []string{"submit", "-db", path, "-namespace", "demo", "-handler", "echo", "-version", "v1", "-key", "cancel-demo"}, &out, &errOut); err != nil {
+		t.Fatal(err)
+	}
+	var submitted taskfused.Submission
+	if err := json.Unmarshal(out.Bytes(), &submitted); err != nil {
+		t.Fatal(err)
+	}
+	id := submitted.Operation.ID
+	out.Reset()
+	if err := run(context.Background(), []string{"wait", "-db", path, "-namespace", "demo", "-id", id, "-timeout", "10ms"}, &out, &errOut); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("wait timeout: %v", err)
+	}
+	if out.Len() != 0 {
+		t.Fatal("timed out wait emitted a terminal outcome")
+	}
+	if err := run(context.Background(), []string{"get", "-db", path, "-namespace", "demo", "-id", id}, &out, &errOut); err != nil {
+		t.Fatal(err)
+	}
+	var queued taskfused.Operation
+	if err := json.Unmarshal(out.Bytes(), &queued); err != nil || queued.State != taskfused.StateQueued {
+		t.Fatalf("wait timeout canceled work: %+v %v", queued, err)
+	}
+	out.Reset()
+	if err := run(context.Background(), []string{"cancel", "-db", path, "-namespace", "demo", "-id", id}, &out, &errOut); err != nil {
+		t.Fatal(err)
+	}
+	var canceled taskfused.Cancellation
+	if err := json.Unmarshal(out.Bytes(), &canceled); err != nil || !canceled.Changed || canceled.Operation.State != taskfused.StateCanceled {
+		t.Fatalf("cancel output: %+v %v", canceled, err)
+	}
+	out.Reset()
+	if err := run(context.Background(), []string{"wait", "-db", path, "-namespace", "demo", "-id", id}, &out, &errOut); err != nil {
+		t.Fatal(err)
+	}
+	var terminal taskfused.Operation
+	if err := json.Unmarshal(out.Bytes(), &terminal); err != nil || terminal.State != taskfused.StateCanceled {
+		t.Fatalf("wait outcome: %+v %v", terminal, err)
+	}
+	if err := run(context.Background(), []string{"wait", "-db", path, "-namespace", "demo", "-id", id, "-timeout", "0s"}, &out, &errOut); err == nil {
+		t.Fatal("accepted zero wait timeout")
 	}
 }

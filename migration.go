@@ -65,3 +65,62 @@ CREATE INDEX operations_claim ON operations(namespace, handler, handler_version,
 PRAGMA user_version = 2;`)
 	return err
 }
+
+// Version 3 adds canceled to the operation/attempt state domains. Cancellation
+// revokes ownership transactionally; it does not need a pending cancellation flag.
+func migrateV3(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, `
+CREATE TABLE operations_v3 (
+ id TEXT PRIMARY KEY,
+ namespace TEXT NOT NULL,
+ handler TEXT NOT NULL,
+ handler_version TEXT NOT NULL,
+ operation_key TEXT NOT NULL,
+ input BLOB NOT NULL,
+ input_sha256 TEXT NOT NULL,
+ state TEXT NOT NULL CHECK(state IN ('queued','running','retry_wait','succeeded','failed','canceled')),
+ created_at TEXT NOT NULL,
+ attempt_count INTEGER NOT NULL DEFAULT 0 CHECK(attempt_count >= 0),
+ max_attempts INTEGER NOT NULL DEFAULT 3 CHECK(max_attempts BETWEEN 1 AND 100),
+ retry_base_ns INTEGER NOT NULL DEFAULT 1000000000,
+ next_run_ns INTEGER NOT NULL DEFAULT 0,
+ ownership_token INTEGER NOT NULL DEFAULT 0,
+ active_attempt_id TEXT NOT NULL DEFAULT '',
+ lease_until_ns INTEGER NOT NULL DEFAULT 0,
+ result BLOB,
+ last_error TEXT NOT NULL DEFAULT '',
+ completed_at TEXT,
+ UNIQUE(namespace, handler, handler_version, operation_key)
+);
+INSERT INTO operations_v3 SELECT * FROM operations;
+CREATE TABLE attempts_v3 (
+ id TEXT PRIMARY KEY,
+ operation_id TEXT NOT NULL REFERENCES operations_v3(id),
+ number INTEGER NOT NULL,
+ token INTEGER NOT NULL,
+ state TEXT NOT NULL CHECK(state IN ('running','succeeded','failed','expired','canceled')),
+ started_at TEXT NOT NULL,
+ lease_until_ns INTEGER NOT NULL,
+ finished_at TEXT,
+ error TEXT NOT NULL DEFAULT '',
+ UNIQUE(operation_id, number)
+);
+INSERT INTO attempts_v3 SELECT * FROM attempts;
+CREATE TABLE events_v3 (
+ sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+ operation_id TEXT NOT NULL REFERENCES operations_v3(id),
+ kind TEXT NOT NULL,
+ occurred_at TEXT NOT NULL,
+ attempt_id TEXT NOT NULL DEFAULT ''
+);
+INSERT INTO events_v3 SELECT * FROM events;
+DROP TABLE events;
+DROP TABLE attempts;
+DROP TABLE operations;
+ALTER TABLE operations_v3 RENAME TO operations;
+ALTER TABLE attempts_v3 RENAME TO attempts;
+ALTER TABLE events_v3 RENAME TO events;
+CREATE INDEX operations_claim ON operations(namespace, handler, handler_version, state, next_run_ns, lease_until_ns);
+PRAGMA user_version = 3;`)
+	return err
+}

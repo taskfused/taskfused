@@ -1,6 +1,6 @@
 # Resume TaskFused
 
-Updated: 2026-10-17. Completed milestone: leased execution and crash recovery.
+Updated: 2026-10-17. Completed milestone: shared waiting and operation cancellation.
 
 ## Read first
 
@@ -11,70 +11,81 @@ repository. No release license has been selected; NOTICE reserves rights.
 
 ## Current implementation
 
-Milestone 1's durable submissions, explicit duplicate joining, conflict checks and
-namespace-qualified lookup remain. Milestone 2 adds a transactional schema-v1-to-v2
-migration, queued/running/retry_wait/succeeded/failed states, durable attempts,
-increasing ownership tokens, lease renewal, guarded result/failure commits,
-exponential retry delays, bounded retry budgets, and lazy expired-attempt recovery.
+Milestones 1–2 provide durable submissions, explicit duplicate joining, identity
+and retry-policy conflict checks, namespace-qualified lookup, a local SQLite store,
+leased execution, durable attempts and increasing tokens, renewal, guarded
+result/failure commits, bounded retries/backoff, and expired-attempt recovery.
+Workers have immutable handler registries, RunOnce and bounded-concurrency Run.
+The engine supports one host with a local filesystem and needs CGO/a C compiler.
 
-Low-level APIs: Claim, Renew, Complete, Fail, Attempts. Worker API: NewWorker with
-an immutable handler registry, RunOnce, and Run with bounded concurrency. Workers
-renew while executing, convert handler panics/oversized results into failures,
-and cooperate with cancellation. Stale ownership and storage errors stop the
-runner; they are not silently swallowed. Expired ownership is rejected even before
-a successor claims. Tokens protect database commits, not external effects.
+Milestone 3 adds schema v3, read-only Wait, and explicit Cancel. Wait polls every
+100ms, works across processes, and returns terminal Operation records with nil API
+error even for failed/canceled outcomes. Its caller context only stops that wait.
+Cancel marks queued/retry_wait/running work canceled and atomically revokes the
+active attempt. A canceled attempt's finish time is revocation, not observed
+handler exit. There is no pending cancellation-request flag or acknowledgment.
 
-CLI: submit/get/attempts, with retry-policy flags. examples/worker registers an echo
-handler in namespace demo at v1 and can be used for crash demonstrations. The
-SQLite driver requires CGO and a C compiler. Only one host/local filesystem is
-supported; worker shutdown leaves unfinished attempts for lease-expiry recovery.
+Success/final failure versus cancellation is first-terminal-commit-wins. Cancel is
+idempotent and leaves existing terminal outcomes unchanged. Joining canceled work
+returns its stored outcome without rerunning it. Renew/Complete/Fail on canceled
+work return ErrOperationCanceled; workers treat that as normal handled work rather
+than stopping siblings. Cooperative handlers detect cancellation on heartbeat;
+uncooperative or already-claimed handlers may still execute external code, but
+cannot commit a later result. Worker shutdown still leaves work for lease recovery.
 
-Joining a terminal operation returns its stored outcome; it never reruns it.
-Retry policy is immutable for a given identity. Crashed claims consume budget.
-Explicit operator retry, shared waiting, operation cancellation, retention,
-HTTP endpoints and a UI are not yet implemented. There is no public release.
+CLI: submit/get/attempts/wait/cancel. Wait has a positive timeout, default 30s; a
+timeout changes no operation. A successful CLI wait retrieves any terminal outcome,
+so inspect the state. The example worker handles echo/v1 in namespace demo.
+
+Versions 1 and 2 migrate transactionally to v3, preserving IDs, active attempts,
+results, events, leases and retry policy. No HTTP/UI, operator retry, retention,
+or multi-host coordination exists yet. There is no public release.
 
 ## Validation
 
-Milestone 1 GitHub CI completed successfully before this session. Milestone 2
-passed locally on Linux with Go 1.26.1: go vet ./..., go test -race -count=1 ./...,
-go build ./..., CLI build and example-worker build, and formatting/diff checks.
+Milestone 2 GitHub CI passed before this session. Milestone 3 passed locally on
+Linux with Go 1.26.1: go test -race -count=1 ./..., go vet ./..., go build ./...,
+CLI/example-worker builds, formatting checks and diff checks.
 
-Tests include exact lease-expiry boundaries, stale renewal/success/failure before
-and after reclamation, non-shortening renewal, retry timing/budgets, crash budget
-exhaustion, concurrent claims and competing terminal commits, claim/result event
-rollback, v1 migration with preserved identity/events and valid foreign keys,
-handler failures/panics/oversized results, heartbeat renewal, lease-loss
-cancellation, bounded worker concurrency, shutdown recovery, registry isolation,
-and CLI retry flags/attempt history. Existing submission tests remain passing.
+New coverage includes 100 equivalent submissions sharing one operation/result,
+one canceled waiter while 99 others succeed, wait deadlines and namespace lookup,
+failed/canceled terminal waits, independent result bytes, cross-process waiting,
+queued/retry-wait/running cancellation, idempotence/event count, late renewal and
+result/failure rejection, cancellation racing success and retry scheduling,
+rollback on a cancellation-event failure, unaffected sibling work, uncooperative
+handler behavior, v2 migration preserving live ownership/results/events, and
+rollback on migration failure. Existing submission, lease, retry and crash tests
+remain passing. CLI tests cover wait deadlines and explicit cancellation.
 
-An end-to-end local binary check submitted an echo operation, observed its first
-claim, killed the worker with SIGKILL, restarted a worker on the same SQLite file,
-and verified expired/succeeded attempt history, a larger token, unchanged operation
-ID, recovered result bytes, terminal joining, and graceful replacement shutdown.
+A local CLI/example-worker integration verified that a timed-out wait leaves work
+active, two separate wait processes retrieve the same result, canceling a running
+operation returns a durable canceled outcome/attempt, and the same runner executes
+subsequent work successfully before graceful shutdown.
 
 ## Exact next step
 
-Implement shared waiting and explicit cooperative operation cancellation, beginning
-with their race semantics in docs/CONTRACT.md. A caller canceling its wait must not
-cancel the shared operation. Define cancellation versus success, queued/retry-wait
-cancellation, and lease-loss behavior before adding a cancellation flag/schema v3.
-Cancellation must never claim to undo external side effects. Add tests for 100
-joined callers, one canceled waiter, other waiters receiving the shared outcome,
-and operation cancellation racing result commit.
+Implement operator inspection and explicit failed-operation retry.
+First specify retry semantics: failed-only retry, action idempotency, preserved
+operation/input, increasing attempt numbers/tokens, and budget accounting that does
+not silently change the original immutable submission policy. Canceled work remains
+terminal; intentional new work uses a new identity. Do not reset ownership counters
+or accidentally make an old attempt valid again.
 
-Then add operator retry with an explicit budget/identity policy, event inspection,
-and a reproducible user-facing demo. Keep HTTP/UI after these semantics, and keep
-multi-host coordination and automatic graph fusion deferred.
+Add namespace-qualified event inspection with bounded pagination/cursors. Expose
+retry eligibility and attempt/event details through the CLI. Add failure/race tests
+for retry versus cancellation and duplicate operator actions. Keep schema migration
+explicit if new budget/generation fields are needed. Then build a reproducible
+shared-execution/recovery demonstration. HTTP/UI follow these semantics; storage
+retention, measured polling load, and broader operational limits remain later work.
 
 ## Repository transport and session discipline
 
 The GitHub connector can write this repository. Direct HTTPS git push has no CLI
 credentials here. Publish verified files with connector tree/commit/ref operations,
 using the expected remote head. Fetch afterward and verify local/remote trees match;
-local git can remain aligned to the connector-created commit. Never force-push over
-unseen changes. Do not reproduce or seek private credentials.
+local git can align to the connector-created commit. Never force-push over unseen
+changes. Do not reproduce or seek private credentials.
 
 Keep each change scoped to a coherent milestone. Update this file with observed
 checks and remaining behavior. Do not claim elapsed session hours or exactly-once
-external side effects. No license or website work is implied by continuing code.
+external effects. No license or website work is implied by continuing code.

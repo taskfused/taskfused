@@ -18,6 +18,7 @@ const (
 	StateRetryWait = "retry_wait"
 	StateSucceeded = "succeeded"
 	StateFailed    = "failed"
+	StateCanceled  = "canceled"
 	MaxResultBytes = 1024 * 1024
 	MaxErrorBytes  = 8192
 	MinLease       = 100 * time.Millisecond
@@ -171,6 +172,14 @@ func (s *Store) Claim(ctx context.Context, r ClaimRequest) (Claim, error) {
 func owned(ctx context.Context, tx *sql.Tx, c Claim, now time.Time) (Operation, error) {
 	op, err := scanOperation(tx.QueryRowContext(ctx, "SELECT "+columns+` FROM operations WHERE id=? AND namespace=? AND state='running' AND active_attempt_id=? AND ownership_token=? AND lease_until_ns>?`, c.Operation.ID, c.Operation.Namespace, c.Attempt.ID, c.Attempt.Token, now.UnixNano()))
 	if errors.Is(err, ErrNotFound) {
+		var state string
+		lookupErr := tx.QueryRowContext(ctx, "SELECT state FROM operations WHERE id=? AND namespace=?", c.Operation.ID, c.Operation.Namespace).Scan(&state)
+		if lookupErr == nil && state == StateCanceled {
+			return Operation{}, ErrOperationCanceled
+		}
+		if lookupErr != nil && !errors.Is(lookupErr, sql.ErrNoRows) {
+			return Operation{}, lookupErr
+		}
 		return Operation{}, ErrLeaseLost
 	}
 	return op, err

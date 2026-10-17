@@ -21,16 +21,17 @@ import (
 )
 
 const MaxInputBytes = 1024 * 1024
-const schemaVersion = 2
+const schemaVersion = 3
 
 var (
-	ErrInvalid        = errors.New("invalid request")
-	ErrConflict       = errors.New("operation identity already has different input")
-	ErrDuplicate      = errors.New("operation exists; joining was not enabled")
-	ErrNotFound       = errors.New("operation not found")
-	ErrNoWork         = errors.New("no eligible operation")
-	ErrLeaseLost      = errors.New("attempt no longer owns a live lease")
-	ErrPolicyConflict = errors.New("operation identity already has a different retry policy")
+	ErrInvalid           = errors.New("invalid request")
+	ErrConflict          = errors.New("operation identity already has different input")
+	ErrDuplicate         = errors.New("operation exists; joining was not enabled")
+	ErrNotFound          = errors.New("operation not found")
+	ErrNoWork            = errors.New("no eligible operation")
+	ErrLeaseLost         = errors.New("attempt no longer owns a live lease")
+	ErrOperationCanceled = errors.New("operation canceled")
+	ErrPolicyConflict    = errors.New("operation identity already has a different retry policy")
 )
 
 // Request identifies an operation within a namespace. Input is compared byte for
@@ -175,6 +176,11 @@ PRAGMA user_version = 1;`); err != nil {
 			return err
 		}
 	}
+	if version < 3 {
+		if err := migrateV3(ctx, tx); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
 }
 
@@ -290,8 +296,15 @@ func (s *Store) Submit(ctx context.Context, r Request) (Submission, error) {
 // accidentally looking up another account's operation. Authentication belongs to
 // the embedding application; this method alone is not an authorization boundary.
 func (s *Store) Get(ctx context.Context, namespace, id string) (Operation, error) {
-	if strings.TrimSpace(namespace) == "" || strings.TrimSpace(id) == "" {
-		return Operation{}, ErrInvalid
+	if err := validateLookup(namespace, id); err != nil {
+		return Operation{}, err
 	}
 	return scanOperation(s.db.QueryRowContext(ctx, "SELECT "+columns+" FROM operations WHERE namespace=? AND id=?", namespace, id))
+}
+
+func validateLookup(namespace, id string) error {
+	if strings.TrimSpace(namespace) == "" || strings.TrimSpace(id) == "" {
+		return ErrInvalid
+	}
+	return nil
 }

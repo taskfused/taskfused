@@ -20,7 +20,8 @@ three; zero retry delay means one second. Joining a custom-policy operation must
 supply that same policy. Policies cannot be silently changed by later submissions.
 
 Joining applies in every state. Joining a succeeded operation returns its stored
-result; joining a failed operation returns its stored failure. Neither reruns it.
+result; joining failed or canceled work returns its stored terminal outcome.
+Joining never reruns terminal work.
 Use a new operation key for intentionally new work. There is no freshness-based
 result cache, terminal-state TTL, record deletion, or explicit operator retry yet.
 
@@ -36,6 +37,8 @@ on expired running work marks the previous attempt expired and either issues a
 new attempt or fails the operation when its budget is exhausted. Recovery is lazy:
 workers must claim the matching namespace/handler/version to process expirations.
 An operation may still read as running after its lease expires until then.
+Explicit cancellation transitions queued/running/retry_wait directly to canceled
+and prevents recovery or retry scheduling for that operation.
 
 Each claim creates a fresh attempt ID and increasing token. Operation ID, input,
 and retry policy remain stable. Every issued claim consumes an attempt, even if
@@ -74,7 +77,10 @@ Claims, attempt records, result/failure transitions, and their events commit
 atomically. Renewal updates operation and attempt deadlines atomically but does
 not append heartbeat events. Database version 2 migrates version 1 transactionally,
 preserving operation IDs, identity/input, submission events and their sequence IDs.
-Unknown applications and future schema versions are rejected.
+Version 3 adds the canceled state to operation/attempt domains while preserving
+all v2 records, active ownership, stored results and events. Opening v1 runs both
+migrations inside the same transaction. Unknown applications and future schema
+versions are rejected.
 
 ## Worker lifecycle and cancellation
 
@@ -84,8 +90,9 @@ its lease every third of the configured duration. A persisted handler failure is
 handled work; storage and ownership failures are returned to the caller.
 
 `Run` bounds concurrent handlers (default one, maximum 128). A store/ownership
-failure stops the runner and cancels sibling handlers. The embedding process can
-inspect the error and restart the runner. RunOnce callers must bound their own
+failure stops the runner and cancels sibling handlers. Explicit operation
+cancellation is normal handled work and does not stop the runner or its siblings.
+The embedding process can inspect the error and restart the runner. RunOnce callers must bound their own
 concurrency. Multiple worker processes can share a local database on one host.
 
 Handler context cancellation is cooperative. Renewal failure cancels the handler
@@ -96,6 +103,52 @@ perform external actions even though SQLite rejects its result commit.
 
 Canceling a worker is shutdown, not operation cancellation: unfinished claims stay
 running until expiration/recovery and consume their current attempt. A canceled
-submission/read affects only that call. Shared waiting and explicit operation
-cancellation are not implemented yet. Their later API must keep waiter cancellation
-separate from cancellation of the shared operation.
+submission/read affects only that call.
+
+## Shared waiting
+
+Wait reads an operation immediately and polls every 100ms until succeeded, failed,
+or canceled. These terminal records return with a nil API error, including failure
+and cancellation: the caller must inspect the operation's state and error/result.
+Lookup/storage errors return immediately. Namespace qualification matches Get.
+
+Canceling a wait context changes no operation/attempt/event state, never releases
+its lease, and cannot cancel another wait. An already canceled context wins before
+any read. A concurrent terminal read and context cancellation may return whichever
+is observed first. Each returned result slice is independent of other callers.
+Waiting works across local processes/stores through SQLite; no notification broker
+or in-memory subscription registry is assumed. Polling load is not benchmarked yet.
+
+The CLI wait command has a positive timeout, default 30s. An execution failure or
+operation cancellation is still a successfully retrieved terminal record, not a
+CLI transport error. A wait deadline exits with an error and leaves work untouched.
+
+## Explicit operation cancellation
+
+Cancel transactionally marks queued/retry_wait/running work canceled, revokes the
+current attempt if any, clears claim authority, and appends one cancellation event.
+Its returned `Changed` distinguishes a new cancellation from an unchanged terminal
+record. Already succeeded/failed/canceled records remain unchanged; no duplicate
+cancellation event is written. A missing or wrong-namespace operation is not found.
+A commit error can leave the caller uncertain; Get resolves the stored outcome.
+
+Running attempts become canceled atomically with the operation. Their finish time
+records authority revocation, not confirmed physical handler exit. This also applies
+if the running attempt's lease had already expired but had not yet been reclaimed.
+There is no separate cancellation-request flag or pending acknowledgment state.
+
+Cancellation and success/final failure use the same serialized write boundary: the
+first committed terminal state wins. If retry scheduling commits first, work is
+still nonterminal and can be canceled; if cancellation commits first, failure cannot
+schedule a retry. Canceled work is never claimed again. Joining it returns its
+stored canceled outcome; intentional new work requires a new key.
+
+Renew, Complete and Fail return ErrOperationCanceled for a namespace-qualified
+canceled operation, distinct from ErrLeaseLost and from the caller's context error.
+A worker discovering cancellation during renewal cancels its handler context.
+Cancellation observed during final commit is also normal handled work. Other
+operations continue. Detection latency is up to a heartbeat interval plus scheduling
+and database delay. Context-ignoring handlers cannot be forcibly stopped by Go, but
+their later results cannot overwrite cancellation. An already-issued claim can
+begin handler code before its next cancellation check. External effects are not
+undone, and canceled does not certify physical handler exit.

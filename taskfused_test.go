@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 )
 
 func request() Request {
@@ -208,6 +209,22 @@ func TestProcessHelper(t *testing.T) {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(3)
+	}
+	if os.Getenv("TASKFUSED_TEST_ACTION") == "wait" {
+		if err := json.NewEncoder(os.Stdout).Encode(map[string]string{"status": "waiting"}); err != nil {
+			os.Exit(7)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		op, err := s.Wait(ctx, result.Operation.Namespace, result.Operation.ID)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(8)
+		}
+		if err := json.NewEncoder(os.Stdout).Encode(op); err != nil {
+			os.Exit(9)
+		}
+		os.Exit(0)
 	}
 	if os.Getenv("TASKFUSED_TEST_ACTION") == "claim" {
 		c, err := s.Claim(context.Background(), ClaimRequest{Namespace: request().Namespace, Handler: request().Handler, Version: request().Version, LeaseDuration: MinLease})

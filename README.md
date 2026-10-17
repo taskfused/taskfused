@@ -8,9 +8,9 @@ and stores results and attempt history in local SQLite. Restarted workers can
 recover expired attempts without changing the operation ID or input.
 
 **Status: early execution prototype.** Submission, duplicate joining, leased claims,
-renewal, worker concurrency, retries, stored results, and crash recovery exist.
-Shared waiting, explicit operation cancellation, HTTP endpoints, a UI, retention,
-and multi-host coordination are not implemented. External effects require
+renewal, worker concurrency, retries, stored results, crash recovery, shared waiting,
+and explicit operation cancellation exist. HTTP endpoints, a UI, operator retry,
+retention, and multi-host coordination are not implemented. External effects require
 handler-level idempotency; arbitrary exactly-once execution is not promised.
 
 ## Try it
@@ -38,6 +38,7 @@ its result or attempt history:
 ```sh
 ./taskfused get -db demo.db -namespace demo -id op_REPLACE_WITH_RETURNED_ID
 ./taskfused attempts -db demo.db -namespace demo -id op_REPLACE_WITH_RETURNED_ID
+./taskfused wait -db demo.db -namespace demo -id op_REPLACE_WITH_RETURNED_ID -timeout 30s
 ```
 
 Operation input and result JSON fields use base64 to preserve arbitrary bytes.
@@ -105,6 +106,45 @@ remains unchanged. Graceful shutdown also leaves unfinished work for lease recov
 For precise process control, build the example binary first rather than killing a
 `go run` wrapper. See [the execution contract](docs/CONTRACT.md) for retry limits.
 
+## Shared waiting and operation cancellation
+
+`store.Wait(ctx, namespace, id)` returns the stored operation when it succeeds,
+fails, or is canceled. Execution outcomes are in `Operation.State`; an API error
+means the wait/read itself failed. Canceling this context stops only that caller's
+wait. It never cancels the operation, its handler, or other waiters. A context
+already canceled before the call returns its context error even for terminal work.
+If a deadline and terminal read race, either observed outcome is possible.
+
+Waiting reads immediately and then polls local SQLite every 100ms. Independent
+processes can wait on the same operation; no process-local subscription is required.
+This is a correctness baseline, not a throughput claim for thousands of waiters.
+The CLI wait timeout defaults to 30 seconds and must be positive. Its successful
+exit means a terminal outcome was retrieved; inspect `state` for execution success.
+
+Explicitly cancel shared work with `store.Cancel(ctx, namespace, id)` or:
+
+```sh
+./taskfused cancel -db demo.db -namespace demo -id op_REPLACE_WITH_RETURNED_ID
+```
+
+Cancellation atomically marks queued, retrying, or running work `canceled`, revokes
+its active attempt, and prevents any subsequent result/failure commit or claim.
+A running handler observes cancellation cooperatively on its next heartbeat,
+which occurs every third of its worker lease duration. The runner treats this as
+normal handled work and keeps serving other operations.
+
+A canceled terminal record means database authority was revoked. It does not mean
+external code has already stopped or that effects were undone. A handler ignoring
+its context may continue running; its result cannot overwrite cancellation. A
+canceled attempt's finish time records revocation, not confirmed handler exit.
+
+Cancel and result/final-failure commits are serialized: the first terminal commit
+wins. Canceling an already succeeded/failed/canceled operation leaves its outcome
+unchanged and returns `changed: false`. Repeated cancellation adds no duplicate
+event. Joining canceled work returns its canceled outcome without rerunning it.
+Use a new identity for intentionally new work. Worker shutdown remains distinct:
+it leaves unfinished work for lease recovery rather than canceling the operation.
+
 ## Storage and operational limits
 
 SQLite uses WAL mode, FULL synchronization, and a five-second busy timeout. Accepted
@@ -127,8 +167,9 @@ exceed realistic scheduling and SQLite write delays; 100ms is an API minimum,
 not an operational recommendation. Failed handler attempts back off exponentially;
 crashed attempts consume budget and are reclaimed after expiration.
 
-Database version 1 is upgraded transactionally to version 2 on open. IDs, inputs,
-and existing submission events are preserved. Newer schema versions are rejected.
+Database versions 1 and 2 are upgraded transactionally to version 3 on open. IDs,
+inputs, existing submission events, active attempts, results and retry/lease policy
+are preserved. Newer schema versions are rejected.
 
 ## Development
 

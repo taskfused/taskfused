@@ -70,7 +70,8 @@ func NewWorker(s *Store, o WorkerOptions) (*Worker, error) {
 
 // RunOnce claims and executes at most one operation, renewing its lease while the
 // handler runs. A persisted handler failure counts as handled work, not a runner
-// error. Store/ownership errors are returned. Cancellation leaves unfinished work
+// error. Explicit operation cancellation is normal handled work. Other
+// store/ownership errors are returned. Worker cancellation leaves unfinished work
 // for expiry recovery and consumes the current attempt's budget.
 func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
 	start := int((w.next.Add(1) - 1) % uint64(len(w.options.Handlers)))
@@ -83,7 +84,11 @@ func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		return true, w.execute(ctx, claim, h.Handle)
+		err = w.execute(ctx, claim, h.Handle)
+		if errors.Is(err, ErrOperationCanceled) {
+			return true, nil
+		}
+		return true, err
 	}
 	return false, nil
 }

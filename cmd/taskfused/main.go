@@ -25,9 +25,11 @@ func main() {
 
 func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: taskfused <submit|get|attempts> [flags]; use -h after a command")
+		return fmt.Errorf("usage: taskfused <submit|get|attempts|wait|cancel> [flags]; use -h after a command")
 	}
-	if args[0] != "submit" && args[0] != "get" && args[0] != "attempts" {
+	switch args[0] {
+	case "submit", "get", "attempts", "wait", "cancel":
+	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
 	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
@@ -38,6 +40,7 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	var join bool
 	var maxAttempts int
 	var retryDelay time.Duration
+	var timeout time.Duration
 	if args[0] == "submit" {
 		fs.StringVar(&handler, "handler", "", "required handler name")
 		fs.StringVar(&version, "version", "", "required handler version")
@@ -48,6 +51,9 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		fs.BoolVar(&join, "join", false, "join an existing operation with identical input")
 	} else {
 		fs.StringVar(&id, "id", "", "required operation ID")
+		if args[0] == "wait" {
+			fs.DurationVar(&timeout, "timeout", 30*time.Second, "positive wait timeout; does not cancel the operation")
+		}
 	}
 	if err := fs.Parse(args[1:]); err != nil {
 		if err == flag.ErrHelp {
@@ -67,6 +73,9 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if args[0] == "submit" && (handler == "" || version == "" || key == "") {
 		return fmt.Errorf("-handler, -version and -key are required")
 	}
+	if args[0] == "wait" && timeout <= 0 {
+		return fmt.Errorf("-timeout must be positive")
+	}
 	store, err := taskfused.Open(ctx, *path)
 	if err != nil {
 		return err
@@ -83,6 +92,22 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	}
 	if args[0] == "attempts" {
 		result, err := store.Attempts(ctx, *namespace, id)
+		if err != nil {
+			return err
+		}
+		return encoder.Encode(result)
+	}
+	if args[0] == "cancel" {
+		result, err := store.Cancel(ctx, *namespace, id)
+		if err != nil {
+			return err
+		}
+		return encoder.Encode(result)
+	}
+	if args[0] == "wait" {
+		waitCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		result, err := store.Wait(waitCtx, *namespace, id)
 		if err != nil {
 			return err
 		}

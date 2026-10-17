@@ -36,13 +36,18 @@ work and expired attempts cannot renew or commit after losing ownership. Test
 expiry even before a successor claims; do not rely only on matching a token.
 Completed: schema v2, handler registry, bounded worker runner, attempts/tokens,
 renewal, retries, results, and local subprocess/crash checks. Explicit operation
-cancellation remains in the following milestone; worker shutdown is separate.
+cancellation was completed in the following milestone; worker shutdown remains
+separate.
 
 Sessions 5–6: shared execution. Add waiting with independent caller contexts,
 shared durable result retrieval, and explicit cooperative cancellation. Acceptance:
 100 equivalent submissions share one live operation; canceling a wait does not
 cancel its handler; different namespaces and versions never share work. Recovery
 may add attempts and must not be presented as one lifetime execution.
+Completed: schema v3, process-independent Wait polling, explicit cancellation with
+atomic ownership revocation, terminal-race rules, and cancellation isolated from
+sibling operations. Tests cover 100 joined submissions, one canceled wait, stored
+shared outcomes, uncooperative handlers, migration rollback and CLI behavior.
 
 Sessions 7–8: failure testing and limits. Faults before and after claim, around
 handler effects and result commit, process termination, ownership expiry, exhausted
