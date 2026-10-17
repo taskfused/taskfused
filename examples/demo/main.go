@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/taskfused/taskfused/internal/buildinfo"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -47,12 +48,14 @@ type environment struct {
 
 func main() {
 	var childWorker, childSampleDB string
+	var showVersion bool
 	var httpDemo bool
 	var httpListen string
 	var sampleWaiters int
 	var sampleDuration time.Duration
 	fs := flag.NewFlagSet("taskfused-demo", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
+	fs.BoolVar(&showVersion, "version", false, "print executable build metadata and exit")
 	cfg := configuration{}
 	fs.BoolVar(&httpDemo, "http", false, "run HTTP correctness demo instead of measurements")
 	fs.StringVar(&httpListen, "http-listen", "127.0.0.1:0", "HTTP demo listener (literal loopback IP:port)")
@@ -75,6 +78,13 @@ func main() {
 	if fs.NArg() != 0 {
 		fmt.Fprintln(os.Stderr, "unexpected positional arguments")
 		os.Exit(1)
+	}
+	if showVersion {
+		if err := json.NewEncoder(os.Stdout).Encode(buildinfo.Info()); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()

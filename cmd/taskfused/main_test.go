@@ -287,3 +287,20 @@ func TestServeCLIValidationAndShutdown(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestVersionDoesNotRequireNamespaceOrOpenDatabase(t *testing.T) {
+	var out bytes.Buffer
+	if err := run(context.Background(), []string{"version"}, &out, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	var info struct {
+		Version, Revision, Go, OS, Arch string
+		Schema                          int
+	}
+	if err := json.Unmarshal(out.Bytes(), &info); err != nil || info.Version == "" || info.Revision == "" || info.Schema != taskfused.SchemaVersion {
+		t.Fatalf("metadata: %s %v", out.Bytes(), err)
+	}
+	if err := run(context.Background(), []string{"version", "unexpected"}, &out, &bytes.Buffer{}); err == nil {
+		t.Fatal("version accepted arguments")
+	}
+}

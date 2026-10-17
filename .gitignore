@@ -3,3 +3,5 @@
 *.db-wal
 *.db-shm
 coverage.out
+
+/scripts/__pycache__/

@@ -63,7 +63,9 @@ complete; see docs/MEASUREMENTS.md. It checks real process-kill recovery and use
 isolated waiter samples. Shared polling is now measured and implemented. Schema v5 adds durable namespace
 admission limits, usage inspection and bounded succeeded-result pruning while
 retaining exact input/identity/action records. See docs/STORAGE.md. Remaining:
-prepare a clean-checkout candidate packaging process. Storage fault tests and the
+resolve public licensing, version policy and any publication authorization.
+The clean-checkout native candidate packaging/verification gate is implemented;
+see PACKAGING.md and COMPATIBILITY.md. Storage fault tests and the
 release-readiness review are complete within the local prototype scope; see
 docs/FAULTS.md and docs/READINESS.md. The loopback HTTP surface and
 read-only status page are now implemented; see docs/HTTP.md. Latency/storage observations are not release claims.
@@ -97,7 +99,9 @@ A first public release requires tested execution/recovery, clear operational
 limits, honest at-least-once semantics, a selected license, CI, reproducible demos,
 and a versioned release procedure. The public repository is a prototype with an
 all-rights-reserved notice. Local execution/recovery now exist, but a public
-release still needs the licensing and packaging work listed in READINESS.md.
+release still needs the licensing/version/publication decisions in READINESS.md.
+Native candidate packaging, checksums, extracted-artifact smoke tests and a CI gate
+are now implemented without release uploads or tags.
 Statement/commit/full-storage/read-only/contention and lost-acknowledgment tests
 now supplement process-crash coverage; physical filesystem/VFS durability remains
 unqualified. TaskFused.com can

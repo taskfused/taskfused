@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -14,14 +15,23 @@ import (
 	"time"
 
 	"github.com/taskfused/taskfused"
+	"github.com/taskfused/taskfused/internal/buildinfo"
 )
 
 func main() {
+	showVersion := flag.Bool("version", false, "print executable build metadata and exit")
 	path := flag.String("db", "demo.db", "local SQLite path")
 	delay := flag.Duration("delay", time.Second, "simulated handler duration")
 	failUntil := flag.Int("fail-until-attempt", 0, "demo only: fail attempts up to this lifetime number")
 	concurrency := flag.Int("concurrency", 2, "maximum concurrent handlers")
 	flag.Parse()
+	if *showVersion {
+		if err := json.NewEncoder(os.Stdout).Encode(buildinfo.Info()); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if *failUntil < 0 {
 		fmt.Fprintln(os.Stderr, "-fail-until-attempt must be nonnegative")
 		os.Exit(1)

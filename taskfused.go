@@ -22,7 +22,11 @@ import (
 )
 
 const MaxInputBytes = 1024 * 1024
-const schemaVersion = 5
+
+// SchemaVersion is the highest local SQLite schema understood by this build.
+const SchemaVersion = 5
+
+const schemaVersion = SchemaVersion
 
 var (
 	ErrInvalid           = errors.New("invalid request")

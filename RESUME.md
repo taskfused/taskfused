@@ -1,10 +1,10 @@
 # Resume TaskFused
 
-Updated: 2026-10-17. Completed milestone: storage faults and readiness review.
+Updated: 2026-10-17. Completed milestone: local candidate packaging and artifact verification.
 
 ## Read first
 
-Read README.md, docs/CONTRACT.md, docs/DEVELOPMENT_PLAN.md, docs/MEASUREMENTS.md, docs/STORAGE.md, docs/HTTP.md, docs/HTTP_DEMO.md, docs/FAULTS.md and docs/READINESS.md.
+Read README.md, docs/CONTRACT.md, docs/DEVELOPMENT_PLAN.md, docs/MEASUREMENTS.md, docs/STORAGE.md, docs/HTTP.md, docs/HTTP_DEMO.md, docs/FAULTS.md, docs/READINESS.md, docs/PACKAGING.md and docs/COMPATIBILITY.md.
 Repository: https://github.com/taskfused/taskfused. Intended site: TaskFused.com;
 no website repository/hosting target has been provided. Work is authorized on this
 code repository. No release license is selected; NOTICE reserves rights.
@@ -227,18 +227,56 @@ artifact validation and version policy remain. Go 1.26.1/Linux amd64 is tested;
 minimum Go 1.24 and other targets are not yet qualified. Browser rendering remains
 unverified. No release, license or hosting choice has been made.
 
+## Candidate packaging milestone
+
+scripts/candidate.py build --output OUTSIDE_NEW_DIRECTORY --rebuild requires a clean
+committed checkout, native Linux amd64, Python 3.10+, stable Go 1.26.x and a C compiler.
+--go accepts an absolute toolchain path. Source is git-archived from exact HEAD into
+a temporary tree; ignored/untracked files cannot become build inputs. Replacements
+or new modules require notice review. No release/tag/upload is performed.
+
+Three binaries: taskfused, taskfused-worker and taskfused-demo. They expose JSON build
+metadata via version / -version without opening databases. internal/buildinfo linker
+values stamp candidate-<12-character SHA> and full revision; metadata also includes
+Go, target, CGO and exported SchemaVersion (still v5). Ordinary builds remain marked
+development and use available Go VCS info. No database/execution semantics changed.
+
+Build uses CGO, GOAMD64=v1, trimpath, disabled automatic VCS stamping and stripped
+build ID/debug information. --rebuild uses a separate fresh Go cache and compares
+all three binary hashes. Manifest records source tree/epoch, compiler/CGO settings,
+module checksums and host libc. This is same-host/toolchain repeatability, not static
+or cross-distribution portability. Archive ownership/modes/order/timestamps and gzip
+header are normalized. Notices retain all rights; Go/driver licenses are copied.
+
+Verifier checks outer/internal hashes, exact file membership and manifest/provenance,
+rejects traversal/links/duplicate/oversized entries, then executes extracted binaries.
+Smoke checks submit/join, one echo result/attempt, limits/pruning, HTTP usage/status,
+cooperative shutdown and the packaged HTTP recovery demo with ten shared requests.
+Output is moved into its new directory only after success. Checksums are integrity,
+not authentication; verifier executes trusted candidate code. It does not substitute
+for source checks. CI runs source tests and Python integrity tests before packaging
+with --rebuild; it does not upload artifacts or publish a release.
+
+See PACKAGING.md, COMPATIBILITY.md, CANDIDATE_QUICKSTART.md and THIRD_PARTY.md.
+Local source vet/race/build and Python tests pass. A temporary clean committed
+validation snapshot exercises the native build, independent-cache repeat build
+and extracted artifact checks. Final CI gates packaging from the actual committed
+revision. Browser visual rendering and physical filesystem durability remain
+unqualified. Public licensing and version policy remain unchosen.
+
 ## Exact next step
 
-Prepare a clean-checkout release candidate process without publishing it: a local
-build/checksum/artifact-verification script, supported-target/compatibility notes
-and a quickstart smoke test using the produced executable. Keep the current notice
-intact. Do not choose a license, push a tag or publish binaries implicitly. Review
-READINESS.md for concrete remaining public-release gates; extra engine features
-are not needed to complete the scoped local prototype. Physical filesystem/VFS
-fault qualification and broader load tests precede stronger production claims.
-TaskFused.com still needs a separate site target. No remote hosting/authentication,
-arbitrary commands, workflow graphs, multi-host backend or automatic fusion is
-implied by continuing. The original ten-session estimate is a planning budget.
+The scoped local prototype and candidate build/verification path are implemented.
+Review READINESS.md. The remaining public-release decisions are the license,
+version/tag policy, desired initial native targets and explicit publication
+instruction. Do not choose these implicitly, publish binaries or push tags.
+If continued without a release decision, prioritize concrete defects or supported
+platform verification rather than expanding orchestration features. Candidate
+binaries currently target only Linux amd64; other targets need actual native build
+and runtime checks. Website work still needs a separate site repository/hosting
+target. No remote service, arbitrary jobs, workflow graphs, multi-host coordination
+or automatic fusion is implied. Stronger production claims require physical IO/
+power-loss and realistic capacity qualification beyond the current scoped tests.
 
 ## Repository transport and session discipline
 

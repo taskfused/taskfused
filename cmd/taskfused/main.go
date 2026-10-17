@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/taskfused/taskfused"
+	"github.com/taskfused/taskfused/internal/buildinfo"
 	"github.com/taskfused/taskfused/localhttp"
 )
 
@@ -26,7 +27,13 @@ func main() {
 
 func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: taskfused <submit|get|attempts|events|wait|cancel|retry|usage|set-limits|prune-results|serve> [flags]; use -h after a command")
+		return fmt.Errorf("usage: taskfused <submit|get|attempts|events|wait|cancel|retry|usage|set-limits|prune-results|serve|version> [flags]; use -h after a command")
+	}
+	if args[0] == "version" {
+		if len(args) != 1 {
+			return fmt.Errorf("version accepts no arguments")
+		}
+		return json.NewEncoder(out).Encode(buildinfo.Info())
 	}
 	if args[0] == "serve" {
 		return serve(ctx, args[1:], errOut)

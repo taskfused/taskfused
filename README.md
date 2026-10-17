@@ -15,7 +15,7 @@ endpoints and a read-only status page are available on loopback. Multi-host
 coordination is not implemented. External effects require
 handler-level idempotency; arbitrary exactly-once execution is not promised.
 See [the readiness review](docs/READINESS.md) for implemented coverage and the
-remaining licensing/packaging work before a public release.
+remaining public-release decisions and validation limits.
 
 ## End-to-end demonstration and measurements
 
@@ -53,6 +53,19 @@ submissions, independent wait timeout, actual worker kill/recovery, cancellation
 retry replay and pruned-result inspection over HTTP. Retention administration and
 stale worker result rejection use their Go APIs. No external service is needed.
 See [HTTP demo procedure and captured IPv4/IPv6 reports](docs/HTTP_DEMO.md).
+
+## Build a local candidate
+
+```sh
+python3 scripts/candidate.py build --output /tmp/taskfused-candidate --rebuild
+```
+
+Run from a clean committed checkout on native Linux amd64 with Go 1.26.x, Python
+3.10+ and a C compiler. This creates and verifies a local archive containing the
+CLI, example worker and demo; it does not publish, tag or change NOTICE. Version
+metadata is available with taskfused version and the example binaries' -version.
+See [candidate packaging](docs/PACKAGING.md), [compatibility scope](docs/COMPATIBILITY.md)
+and the [packaged quickstart](docs/CANDIDATE_QUICKSTART.md).
 
 ## Try it
 
