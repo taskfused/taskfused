@@ -21,7 +21,7 @@ import (
 )
 
 const MaxInputBytes = 1024 * 1024
-const schemaVersion = 3
+const schemaVersion = 4
 
 var (
 	ErrInvalid           = errors.New("invalid request")
@@ -31,6 +31,10 @@ var (
 	ErrNoWork            = errors.New("no eligible operation")
 	ErrLeaseLost         = errors.New("attempt no longer owns a live lease")
 	ErrOperationCanceled = errors.New("operation canceled")
+	ErrRetryState        = errors.New("only failed operations can be retried")
+	ErrRetryStale        = errors.New("failed attempt count changed")
+	ErrRetryConflict     = errors.New("retry action key already has different parameters")
+	ErrRetryBudget       = errors.New("lifetime attempt limit exceeded")
 	ErrPolicyConflict    = errors.New("operation identity already has a different retry policy")
 )
 
@@ -39,14 +43,15 @@ var (
 // JoinExisting permits returning an existing operation with identical input,
 // including after a restart. It never merges work across namespaces or versions.
 type Request struct {
-	Namespace    string        `json:"namespace"`
-	Handler      string        `json:"handler"`
-	Version      string        `json:"version"`
-	Key          string        `json:"key"`
-	Input        []byte        `json:"input"`
-	JoinExisting bool          `json:"join_existing"`
-	MaxAttempts  int           `json:"max_attempts"`
-	RetryDelay   time.Duration `json:"retry_delay"`
+	Namespace    string `json:"namespace"`
+	Handler      string `json:"handler"`
+	Version      string `json:"version"`
+	Key          string `json:"key"`
+	Input        []byte `json:"input"`
+	JoinExisting bool   `json:"join_existing"`
+	// MaxAttempts is the immutable initial claim budget; zero defaults to three.
+	MaxAttempts int           `json:"max_attempts"`
+	RetryDelay  time.Duration `json:"retry_delay"`
 }
 
 // Operation is a durable record. Result is populated only on success.
@@ -64,9 +69,13 @@ type Operation struct {
 	AttemptCount int           `json:"attempt_count"`
 	MaxAttempts  int           `json:"max_attempts"`
 	RetryDelay   time.Duration `json:"retry_delay"`
-	Result       []byte        `json:"result,omitempty"`
-	LastError    string        `json:"last_error,omitempty"`
-	CompletedAt  *time.Time    `json:"completed_at,omitempty"`
+	// AttemptLimit is the effective lifetime budget, including operator grants.
+	AttemptLimit    int        `json:"attempt_limit"`
+	RetryCycleStart int        `json:"retry_cycle_start"`
+	RetryEligible   bool       `json:"retry_eligible"`
+	Result          []byte     `json:"result,omitempty"`
+	LastError       string     `json:"last_error,omitempty"`
+	CompletedAt     *time.Time `json:"completed_at,omitempty"`
 }
 
 type Submission struct {
@@ -181,6 +190,11 @@ PRAGMA user_version = 1;`); err != nil {
 			return err
 		}
 	}
+	if version < 4 {
+		if err := migrateV4(ctx, tx); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
 }
 
@@ -199,7 +213,7 @@ func validate(r Request) error {
 }
 
 const identityColumns = "id, namespace, handler, handler_version, operation_key, input, input_sha256, state, created_at"
-const columns = identityColumns + ", attempt_count, max_attempts, retry_base_ns, result, last_error, completed_at"
+const columns = identityColumns + ", attempt_count, max_attempts, retry_base_ns, result, last_error, completed_at, attempt_limit, retry_cycle_start"
 
 type scanner interface{ Scan(...any) error }
 
@@ -207,7 +221,7 @@ func scanOperation(row scanner) (Operation, error) {
 	var op Operation
 	var created string
 	var completed sql.NullString
-	if err := row.Scan(&op.ID, &op.Namespace, &op.Handler, &op.Version, &op.Key, &op.Input, &op.InputSHA256, &op.State, &created, &op.AttemptCount, &op.MaxAttempts, &op.RetryDelay, &op.Result, &op.LastError, &completed); err != nil {
+	if err := row.Scan(&op.ID, &op.Namespace, &op.Handler, &op.Version, &op.Key, &op.Input, &op.InputSHA256, &op.State, &created, &op.AttemptCount, &op.MaxAttempts, &op.RetryDelay, &op.Result, &op.LastError, &completed, &op.AttemptLimit, &op.RetryCycleStart); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Operation{}, ErrNotFound
 		}
@@ -225,6 +239,7 @@ func scanOperation(row scanner) (Operation, error) {
 		}
 		op.CompletedAt = &t
 	}
+	op.RetryEligible = op.State == StateFailed && op.AttemptCount < MaxLifetimeAttempts
 	return op, nil
 }
 
@@ -277,10 +292,10 @@ func (s *Store) Submit(ctx context.Context, r Request) (Submission, error) {
 	op := Operation{
 		ID: "op_" + hex.EncodeToString(random[:]), Namespace: r.Namespace,
 		Handler: r.Handler, Version: r.Version, Key: r.Key, Input: input,
-		InputSHA256: hash, State: "queued", CreatedAt: s.now().UTC(), MaxAttempts: attempts, RetryDelay: delay,
+		InputSHA256: hash, State: "queued", CreatedAt: s.now().UTC(), MaxAttempts: attempts, RetryDelay: delay, AttemptLimit: attempts,
 	}
 	created := op.CreatedAt.Format(time.RFC3339Nano)
-	if _, err := tx.ExecContext(ctx, `INSERT INTO operations (`+identityColumns+`, max_attempts, retry_base_ns, next_run_ns) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, op.ID, op.Namespace, op.Handler, op.Version, op.Key, op.Input, hash, op.State, created, attempts, delay.Nanoseconds(), op.CreatedAt.UnixNano()); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO operations (`+identityColumns+`, max_attempts, retry_base_ns, next_run_ns, attempt_limit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, op.ID, op.Namespace, op.Handler, op.Version, op.Key, op.Input, hash, op.State, created, attempts, delay.Nanoseconds(), op.CreatedAt.UnixNano(), attempts); err != nil {
 		return Submission{}, err
 	}
 	if _, err := tx.ExecContext(ctx, "INSERT INTO events(operation_id, kind, occurred_at) VALUES (?, 'submitted', ?)", op.ID, created); err != nil {

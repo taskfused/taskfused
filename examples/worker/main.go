@@ -19,8 +19,13 @@ import (
 func main() {
 	path := flag.String("db", "demo.db", "local SQLite path")
 	delay := flag.Duration("delay", time.Second, "simulated handler duration")
+	failUntil := flag.Int("fail-until-attempt", 0, "demo only: fail attempts up to this lifetime number")
 	concurrency := flag.Int("concurrency", 2, "maximum concurrent handlers")
 	flag.Parse()
+	if *failUntil < 0 {
+		fmt.Fprintln(os.Stderr, "-fail-until-attempt must be nonnegative")
+		os.Exit(1)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	s, err := taskfused.Open(ctx, *path)
@@ -39,6 +44,9 @@ func main() {
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			case <-timer.C:
+				if c.Attempt.Number <= *failUntil {
+					return nil, fmt.Errorf("simulated failure on attempt %d", c.Attempt.Number)
+				}
 				return c.Operation.Input, nil
 			}
 		}}},

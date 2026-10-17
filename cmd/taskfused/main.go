@@ -25,10 +25,10 @@ func main() {
 
 func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: taskfused <submit|get|attempts|wait|cancel> [flags]; use -h after a command")
+		return fmt.Errorf("usage: taskfused <submit|get|attempts|events|wait|cancel|retry> [flags]; use -h after a command")
 	}
 	switch args[0] {
-	case "submit", "get", "attempts", "wait", "cancel":
+	case "submit", "get", "attempts", "events", "wait", "cancel", "retry":
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
@@ -41,16 +41,28 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	var maxAttempts int
 	var retryDelay time.Duration
 	var timeout time.Duration
+	var after int64
+	var limit, expectedAttempts, additionalAttempts int
+	var actionKey string
 	if args[0] == "submit" {
 		fs.StringVar(&handler, "handler", "", "required handler name")
 		fs.StringVar(&version, "version", "", "required handler version")
 		fs.StringVar(&key, "key", "", "required durable operation key")
 		fs.StringVar(&input, "input", "", "UTF-8 input (library API also accepts arbitrary bytes)")
-		fs.IntVar(&maxAttempts, "max-attempts", 3, "maximum execution attempts (1–100)")
+		fs.IntVar(&maxAttempts, "max-attempts", 3, "initial execution attempt budget (1–100)")
 		fs.DurationVar(&retryDelay, "retry-delay", time.Second, "initial exponential retry delay (1ms–1h)")
 		fs.BoolVar(&join, "join", false, "join an existing operation with identical input")
 	} else {
 		fs.StringVar(&id, "id", "", "required operation ID")
+		if args[0] == "events" {
+			fs.Int64Var(&after, "after", 0, "exclusive event sequence cursor")
+			fs.IntVar(&limit, "limit", 50, "event page size (1–200)")
+		}
+		if args[0] == "retry" {
+			fs.StringVar(&actionKey, "action-key", "", "required durable retry action key")
+			fs.IntVar(&expectedAttempts, "expected-attempts", 0, "required failed attempt count observed by the operator")
+			fs.IntVar(&additionalAttempts, "additional-attempts", 1, "additional claims to grant (1–100)")
+		}
 		if args[0] == "wait" {
 			fs.DurationVar(&timeout, "timeout", 30*time.Second, "positive wait timeout; does not cancel the operation")
 		}
@@ -76,6 +88,9 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if args[0] == "wait" && timeout <= 0 {
 		return fmt.Errorf("-timeout must be positive")
 	}
+	if args[0] == "retry" && (actionKey == "" || expectedAttempts < 1) {
+		return fmt.Errorf("-action-key and positive -expected-attempts are required")
+	}
 	store, err := taskfused.Open(ctx, *path)
 	if err != nil {
 		return err
@@ -92,6 +107,20 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	}
 	if args[0] == "attempts" {
 		result, err := store.Attempts(ctx, *namespace, id)
+		if err != nil {
+			return err
+		}
+		return encoder.Encode(result)
+	}
+	if args[0] == "events" {
+		result, err := store.Events(ctx, *namespace, id, taskfused.EventQuery{After: after, Limit: limit})
+		if err != nil {
+			return err
+		}
+		return encoder.Encode(result)
+	}
+	if args[0] == "retry" {
+		result, err := store.Retry(ctx, taskfused.RetryRequest{Namespace: *namespace, ID: id, ActionKey: actionKey, ExpectedAttempts: expectedAttempts, AdditionalAttempts: additionalAttempts})
 		if err != nil {
 			return err
 		}

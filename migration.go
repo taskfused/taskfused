@@ -124,3 +124,25 @@ CREATE INDEX operations_claim ON operations(namespace, handler, handler_version,
 PRAGMA user_version = 3;`)
 	return err
 }
+
+// Version 4 separates the immutable submission policy from the effective lifetime
+// attempt limit. Manual grants get durable action IDs and event linkage.
+func migrateV4(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, `
+ALTER TABLE operations ADD COLUMN attempt_limit INTEGER NOT NULL DEFAULT 3 CHECK(attempt_limit BETWEEN 1 AND 1000);
+ALTER TABLE operations ADD COLUMN retry_cycle_start INTEGER NOT NULL DEFAULT 0 CHECK(retry_cycle_start BETWEEN 0 AND 1000);
+UPDATE operations SET attempt_limit=max_attempts;
+ALTER TABLE events ADD COLUMN action_key TEXT NOT NULL DEFAULT '';
+CREATE TABLE retry_actions (
+ operation_id TEXT NOT NULL REFERENCES operations(id),
+ action_key TEXT NOT NULL,
+ expected_attempts INTEGER NOT NULL CHECK(expected_attempts BETWEEN 1 AND 1000),
+ additional_attempts INTEGER NOT NULL CHECK(additional_attempts BETWEEN 1 AND 100),
+ attempt_limit INTEGER NOT NULL CHECK(attempt_limit=expected_attempts+additional_attempts AND attempt_limit<=1000),
+ requested_at TEXT NOT NULL,
+ PRIMARY KEY(operation_id,action_key)
+);
+CREATE INDEX events_operation_sequence ON events(operation_id,sequence);
+PRAGMA user_version = 4;`)
+	return err
+}

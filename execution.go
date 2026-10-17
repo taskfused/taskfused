@@ -134,7 +134,7 @@ func (s *Store) Claim(ctx context.Context, r ClaimRequest) (Claim, error) {
 			if err := event(ctx, tx, op.ID, oldID, "lease_expired", now); err != nil {
 				return Claim{}, err
 			}
-			if op.AttemptCount >= op.MaxAttempts {
+			if op.AttemptCount >= op.AttemptLimit {
 				if _, err := tx.ExecContext(ctx, `UPDATE operations SET state='failed',last_error='lease expired; attempt budget exhausted',completed_at=?,active_attempt_id='',lease_until_ns=0 WHERE id=?`, now.Format(time.RFC3339Nano), op.ID); err != nil {
 					return Claim{}, err
 				}
@@ -250,10 +250,10 @@ func (s *Store) finish(ctx context.Context, c Claim, result []byte, message stri
 	var completed any = now.Format(time.RFC3339Nano)
 	if message != "" {
 		state, attemptState, kind = StateFailed, StateFailed, "failed"
-		if op.AttemptCount < op.MaxAttempts {
+		if op.AttemptCount < op.AttemptLimit {
 			state = StateRetryWait
 			kind = "retry_scheduled"
-			next = now.Add(backoff(op.RetryDelay, op.AttemptCount)).UnixNano()
+			next = now.Add(backoff(op.RetryDelay, op.AttemptCount-op.RetryCycleStart)).UnixNano()
 			completed = nil
 		}
 	}

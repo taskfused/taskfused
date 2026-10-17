@@ -9,8 +9,9 @@ recover expired attempts without changing the operation ID or input.
 
 **Status: early execution prototype.** Submission, duplicate joining, leased claims,
 renewal, worker concurrency, retries, stored results, crash recovery, shared waiting,
-and explicit operation cancellation exist. HTTP endpoints, a UI, operator retry,
-retention, and multi-host coordination are not implemented. External effects require
+explicit operation cancellation, failed-operation retry and paginated event
+inspection exist. HTTP endpoints, a UI, retention, and multi-host coordination
+are not implemented. External effects require
 handler-level idempotency; arbitrary exactly-once execution is not promised.
 
 ## Try it
@@ -145,6 +146,66 @@ event. Joining canceled work returns its canceled outcome without rerunning it.
 Use a new identity for intentionally new work. Worker shutdown remains distinct:
 it leaves unfinished work for lease recovery rather than canceling the operation.
 
+## Inspect events and retry failed work
+
+`get` exposes `retry_eligible`, `attempt_count`, `max_attempts`, `attempt_limit`,
+and `retry_cycle_start`. `max_attempts` remains the immutable submission policy;
+`attempt_limit` is the effective lifetime claim limit, initially the same value.
+Automatic failures and crashes consume lifetime attempt numbers. Manual retry
+never resets these numbers or ownership tokens.
+
+An explicit retry accepts only failed work and requires an action key plus the
+failed attempt count observed by the operator:
+
+```sh
+./taskfused retry -db demo.db -namespace demo -id op_REPLACE_WITH_RETURNED_ID \
+  -action-key repair-1 -expected-attempts 1 -additional-attempts 1
+```
+
+Use the actual `attempt_count` from the failed record, not always 1. The command
+grants 1–100 additional claims (default 1), with a lifetime maximum of 1000. It
+preserves identity, input, handler/version, original max-attempt policy and base
+retry delay. A new cycle starts its automatic backoff from that base delay.
+`retry_eligible` means a new one-claim action can be considered; larger grants
+must also fit the remaining lifetime capacity. Canceled/succeeded work cannot be
+reopened by a new retry action.
+
+Persist and reuse the same action key and parameters if the response is uncertain.
+The first accepted action returns `applied: true`. Repeating it returns
+`applied: false`, its original grant, and the operation's current state. It adds no
+budget, event or execution, even after another failure, success, cancellation, or
+restart. Changed parameters at the same action key conflict. A different action
+with an old failed attempt count cannot retry a later failure. Actions are scoped
+to their operation; namespaces still require application-level authorization.
+
+Inspect the transition history in bounded pages:
+
+```sh
+./taskfused events -db demo.db -namespace demo -id op_REPLACE_WITH_RETURNED_ID \
+  -after 0 -limit 50
+```
+
+Continue with the returned `next_after` sequence. Pages default to 50 records and
+are capped at 200. The exclusive cursor is global, so gaps from other operations
+are normal. Pages are live rather than a frozen snapshot; after `has_more: false`,
+the same cursor can read later appends. Retry events include their action key and
+original expected/additional attempt counts and granted limit. Attempt errors and
+execution times remain available through `attempts`.
+
+To reproduce a failure/retry locally, start the example worker with
+`-delay 20ms -fail-until-attempt 1`, submit a fresh echo identity with
+`-max-attempts 1`, and wait for its failed outcome. Run the retry command above with
+that ID/count, then wait again: attempt 2 succeeds under the same operation ID.
+Repeat the retry action to verify replay, and inspect events/attempts to see the
+single grant. The failure flag is only a deterministic demonstration mechanism;
+it does not run submitted commands or change default echo behavior.
+
+A Wait that already returned a failed outcome does not reattach when an operator
+later retries the record. Invoke Wait again for the reopened operation. If Cancel
+observes failed work before Retry, it is a terminal no-op and does not veto a later
+explicit retry. If Retry queues first and Cancel follows, cancellation wins over
+that queued cycle. Replaying the retry action cannot resurrect canceled work.
+
 ## Storage and operational limits
 
 SQLite uses WAL mode, FULL synchronization, and a five-second busy timeout. Accepted
@@ -167,8 +228,8 @@ exceed realistic scheduling and SQLite write delays; 100ms is an API minimum,
 not an operational recommendation. Failed handler attempts back off exponentially;
 crashed attempts consume budget and are reclaimed after expiration.
 
-Database versions 1 and 2 are upgraded transactionally to version 3 on open. IDs,
-inputs, existing submission events, active attempts, results and retry/lease policy
+Database versions 1–3 are upgraded transactionally to version 4 on open. IDs,
+inputs, existing events, active attempts, results and original retry/lease policy
 are preserved. Newer schema versions are rejected.
 
 ## Development

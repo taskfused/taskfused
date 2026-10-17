@@ -21,9 +21,10 @@ supply that same policy. Policies cannot be silently changed by later submission
 
 Joining applies in every state. Joining a succeeded operation returns its stored
 result; joining failed or canceled work returns its stored terminal outcome.
-Joining never reruns terminal work.
+Joining never reruns terminal work; only an explicit operator retry can reopen
+a failed record.
 Use a new operation key for intentionally new work. There is no freshness-based
-result cache, terminal-state TTL, record deletion, or explicit operator retry yet.
+result cache, terminal-state TTL, or record deletion.
 
 A lookup or attempt-history query requires namespace and ID. A wrong namespace
 returns `ErrNotFound`. Namespace is not a verified security credential; the
@@ -44,10 +45,13 @@ Each claim creates a fresh attempt ID and increasing token. Operation ID, input,
 and retry policy remain stable. Every issued claim consumes an attempt, even if
 its worker crashes before invoking the handler. This is a bounded at-least-once
 attempt model, not a guarantee of eventual execution in the presence of unlimited
-crashes. Retry budgets are 1–100 claims, including the initial attempt.
+crashes. The initial submission budget is 1–100 claims, including the initial attempt.
+Explicit operator grants can extend the lifetime limit to at most 1000 claims.
 
-Handler failures use exponential backoff: base delay after attempt 1, twice that
-after attempt 2, and so on, capped at one hour. Base delay is 1ms–1h. Crash recovery
+Handler failures use exponential backoff: base delay after the first attempt in
+a cycle, twice that after the second, capped at one hour. The initial cycle starts
+at lifetime count zero; each accepted operator retry starts a new cycle at the
+current lifetime attempt count. Numbers and tokens never reset. Base delay is 1ms–1h. Crash recovery
 can reclaim immediately after expiration; it does not add this handler-error delay.
 There is no jitter or permanent/retryable error classification in this milestone.
 
@@ -79,8 +83,9 @@ not append heartbeat events. Database version 2 migrates version 1 transactional
 preserving operation IDs, identity/input, submission events and their sequence IDs.
 Version 3 adds the canceled state to operation/attempt domains while preserving
 all v2 records, active ownership, stored results and events. Opening v1 runs both
-migrations inside the same transaction. Unknown applications and future schema
-versions are rejected.
+migrations inside the same transaction. Version 4 adds effective lifetime limits, retry-cycle offsets, durable action
+records and event action linkage without changing the original submission policy.
+Unknown applications and future schema versions are rejected.
 
 ## Worker lifecycle and cancellation
 
@@ -152,3 +157,56 @@ and database delay. Context-ignoring handlers cannot be forcibly stopped by Go, 
 their later results cannot overwrite cancellation. An already-issued claim can
 begin handler code before its next cancellation check. External effects are not
 undone, and canceled does not certify physical handler exit.
+
+
+## Operator retry
+
+Retry requires namespace, operation ID, an action key (1–256 bytes, no NUL, not
+blank), the failed lifetime attempt count observed by the operator, and 1–100
+additional claims. The total lifetime limit cannot exceed 1000. New actions apply
+only to failed records at the expected count. Other states return ErrRetryState;
+a newer failed count returns ErrRetryStale. Eligibility in Get means failed with
+capacity for at least one more claim, not that any requested grant will fit.
+
+An accepted action preserves operation/input/handler/version and original
+MaxAttempts/RetryDelay. It sets AttemptLimit to AttemptCount + AdditionalAttempts,
+sets RetryCycleStart to AttemptCount, queues immediately and clears terminal result,
+error and completion fields. Earlier attempts/errors/events remain available.
+Ownership tokens and attempt numbers are never reset. Automatic retry/crash budget
+checks use the effective limit, while Submit joining still compares original
+submission policy. This avoids changing the meaning of a resubmission after retry.
+
+Action identity is (operation ID, action key). The action record, budget/state
+change and retry_requested event commit atomically. Repeating exactly the same
+parameters replays the original grant with Applied=false and current operation
+state, without another mutation. This applies after restart or after work later
+fails, succeeds, or is canceled. Changed valid parameters return ErrRetryConflict.
+Invalid request bounds return ErrInvalid. A valid grant exceeding lifetime capacity
+returns ErrRetryBudget. If commit acknowledgment is uncertain, retry the same
+action key/parameters; do not invent a fresh action to resolve uncertainty.
+
+Canceled and succeeded records cannot be reopened. New work after cancellation
+requires a new identity. Retrying failed work is an explicit exception to terminal
+stability; a waiter that already returned is not reattached. Wait reads the current
+cycle and returns a terminal state it observes, without a separate cycle cursor.
+
+Retry versus Cancel follows transaction order. Cancel observing an already failed
+record is unchanged; a later explicit retry may queue it. Cancel after that retry
+revokes the new queued/running cycle. Replaying the recorded retry action after
+cancellation is read-only and cannot resurrect work. Distinct concurrent actions
+at one observed failure cannot both grant a cycle; once queued, new actions fail
+until another claim creates a later failed count.
+
+## Event inspection
+
+Events requires namespace and operation ID, as Get does. After is an exclusive,
+nonnegative global sequence cursor. Limit zero defaults to 50; valid explicit
+limits are 1–200. Returned events are ordered by sequence, with NextAfter equal to
+the last returned sequence (or the input cursor when empty). HasMore is determined
+by one bounded look-ahead row. Sequence gaps from other operations are expected.
+
+Pagination is live, not a snapshot or notification subscription. New appends can
+be fetched after an empty tail. Reads mutate no operation, attempt, event or action
+record. A per-operation sequence index bounds traversal to that operation's log.
+Retry events include durable grant metadata from their action records, preserving
+the original grant even when the effective limit later increases.

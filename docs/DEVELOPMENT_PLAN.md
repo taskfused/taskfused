@@ -55,6 +55,10 @@ retries, input/result size limits, retention, and shutdown. Use deterministic cl
 where useful and real subprocess tests at transaction boundaries. Report actual
 storage growth and latency. Acceptance: documented guarantees hold under injected
 failures, with clear handling of uncertain acceptance and external idempotency.
+Operator retry/event inspection is now implemented in schema v4: failed-only
+actions with durable idempotency, immutable original policy, monotonic ownership,
+a lifetime claim cap, cycle-relative backoff and bounded live event pages.
+Remaining: reproducible full demo, measurements, retention and broader limits.
 
 Sessions 9–10: usable prototype. Add CLI inspection/retry, minimal HTTP endpoints,
 a local status page, two demos, and runnable documentation. The main demo submits

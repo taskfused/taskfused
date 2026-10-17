@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -132,5 +133,63 @@ func TestWaitTimeoutAndExplicitCancelCLI(t *testing.T) {
 	}
 	if err := run(context.Background(), []string{"wait", "-db", path, "-namespace", "demo", "-id", id, "-timeout", "0s"}, &out, &errOut); err == nil {
 		t.Fatal("accepted zero wait timeout")
+	}
+}
+
+func TestRetryAndPaginatedEventsCLI(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cli.db")
+	var out, errOut bytes.Buffer
+	if err := run(context.Background(), []string{"submit", "-db", path, "-namespace", "demo", "-handler", "echo", "-version", "v1", "-key", "retry-demo", "-max-attempts", "1"}, &out, &errOut); err != nil {
+		t.Fatal(err)
+	}
+	var submitted taskfused.Submission
+	if err := json.Unmarshal(out.Bytes(), &submitted); err != nil {
+		t.Fatal(err)
+	}
+	s, err := taskfused.Open(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := s.Claim(context.Background(), taskfused.ClaimRequest{Namespace: "demo", Handler: "echo", Version: "v1", LeaseDuration: time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Fail(context.Background(), c, "failed"); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	args := []string{"retry", "-db", path, "-namespace", "demo", "-id", submitted.Operation.ID, "-action-key", "repair-1", "-expected-attempts", "1", "-additional-attempts", "2"}
+	for _, applied := range []bool{true, false} {
+		out.Reset()
+		if err := run(context.Background(), args, &out, &errOut); err != nil {
+			t.Fatal(err)
+		}
+		var result taskfused.RetryResult
+		if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.Applied != applied || result.Operation.AttemptLimit != 3 || result.Operation.MaxAttempts != 1 {
+			t.Fatalf("retry output: %+v %v", result, err)
+		}
+	}
+	after := int64(0)
+	count := 0
+	for {
+		out.Reset()
+		if err := run(context.Background(), []string{"events", "-db", path, "-namespace", "demo", "-id", submitted.Operation.ID, "-limit", "2", "-after", fmt.Sprint(after)}, &out, &errOut); err != nil {
+			t.Fatal(err)
+		}
+		var page taskfused.EventPage
+		if err := json.Unmarshal(out.Bytes(), &page); err != nil {
+			t.Fatal(err)
+		}
+		count += len(page.Events)
+		after = page.NextAfter
+		if !page.HasMore {
+			break
+		}
+	}
+	if count != 4 {
+		t.Fatalf("event count: %d", count)
+	}
+	if err := run(context.Background(), []string{"retry", "-db", path, "-namespace", "demo", "-id", submitted.Operation.ID}, &out, &errOut); err == nil {
+		t.Fatal("retry accepted missing action identity")
 	}
 }
