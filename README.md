@@ -141,9 +141,11 @@ wait. It never cancels the operation, its handler, or other waiters. A context
 already canceled before the call returns its context error even for terminal work.
 If a deadline and terminal read race, either observed outcome is possible.
 
-Waiting reads immediately and then polls local SQLite every 100ms. Independent
-processes can wait on the same operation; no process-local subscription is required.
-This is a correctness baseline, not a throughput claim for thousands of waiters.
+Waiting reads immediately and shares one local SQLite poller per Store, namespace
+and operation, polling every 100ms. Independent processes still observe changes
+through SQLite. Each caller reads its own final outcome; terminal records are not
+cached across retries. The last departing waiter stops its poller. Store.Close
+stops active waiters with ErrClosed. See docs/MEASUREMENTS.md for measured costs.
 The CLI wait timeout defaults to 30 seconds and must be positive. Its successful
 exit means a terminal outcome was retrieved; inspect `state` for execution success.
 

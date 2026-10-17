@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -87,8 +88,14 @@ type Submission struct {
 // instances may submit concurrently on the same host. Network filesystems and
 // distributed operation are outside this prototype's supported deployment model.
 type Store struct {
-	db  *sql.DB
-	now func() time.Time // Fixed on open; replace only before use in deterministic tests.
+	waitMu    sync.Mutex
+	waits     map[waitKey]*waitPoll
+	waitWG    sync.WaitGroup
+	closed    bool
+	closeOnce sync.Once
+	closeErr  error
+	db        *sql.DB
+	now       func() time.Time // Fixed on open; replace only before use in deterministic tests.
 }
 
 // Open creates or opens a database, verifies its schema and runs initial setup.
@@ -124,7 +131,20 @@ func Open(ctx context.Context, path string) (*Store, error) {
 	return s, nil
 }
 
-func (s *Store) Close() error { return s.db.Close() }
+// Close stops local wait pollers, then closes SQLite. Concurrent calls are safe.
+func (s *Store) Close() error {
+	s.closeOnce.Do(func() {
+		s.waitMu.Lock()
+		s.closed = true
+		for _, p := range s.waits {
+			p.cancel()
+		}
+		s.waitMu.Unlock()
+		s.waitWG.Wait()
+		s.closeErr = s.db.Close()
+	})
+	return s.closeErr
+}
 
 func (s *Store) migrate(ctx context.Context) error {
 	tx, err := s.db.BeginTx(ctx, nil)

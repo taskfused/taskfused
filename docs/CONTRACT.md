@@ -112,7 +112,8 @@ submission/read affects only that call.
 
 ## Shared waiting
 
-Wait reads an operation immediately and polls every 100ms until succeeded, failed,
+Wait reads an operation immediately and shares one 100ms poller per Store,
+namespace and operation until succeeded, failed,
 or canceled. These terminal records return with a nil API error, including failure
 and cancellation: the caller must inspect the operation's state and error/result.
 Lookup/storage errors return immediately. Namespace qualification matches Get.
@@ -121,8 +122,14 @@ Canceling a wait context changes no operation/attempt/event state, never release
 its lease, and cannot cancel another wait. An already canceled context wins before
 any read. A concurrent terminal read and context cancellation may return whichever
 is observed first. Each returned result slice is independent of other callers.
-Waiting works across local processes/stores through SQLite; no notification broker
-or in-memory subscription registry is assumed. Polling load is not benchmarked yet.
+Waiting works across local processes/stores through SQLite. The local registry
+shares notifications, not terminal snapshots: every notified caller reads its own
+outcome, and reattaches if an operator retry has already reopened the operation.
+Input, result and completion-time values are independent between callers. The last
+subscriber leaving stops its poller. Close cancels and joins all pollers before
+closing SQLite; active and later waits return ErrClosed. A concurrent terminal
+read may still return its observed outcome. Pollers never inherit a caller context.
+See MEASUREMENTS.md for measured polling costs.
 
 The CLI wait command has a positive timeout, default 30s. An execution failure or
 operation cancellation is still a successfully retrieved terminal record, not a

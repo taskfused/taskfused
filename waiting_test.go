@@ -207,8 +207,141 @@ func TestWaitReturnsIndependentResultBytes(t *testing.T) {
 		t.Fatal(err)
 	}
 	first.Result[0] = 'X'
+	first.Input[0] = 'X'
+	*first.CompletedAt = time.Time{}
 	second, err := s.Wait(context.Background(), op.Namespace, op.ID)
-	if err != nil || string(second.Result) != "result" {
+	if err != nil || string(second.Result) != "result" || string(second.Input) != string(request().Input) || second.CompletedAt.IsZero() {
 		t.Fatalf("shared mutable bytes: %+v %v", second, err)
+	}
+}
+
+// Enrollment/lifetime checks use the registry directly so scheduler timing cannot
+// turn a lifecycle regression into a flaky performance assertion.
+func TestSharedPollerLifetime(t *testing.T) {
+	s := openTest(t, filepath.Join(t.TempDir(), "poll.db"))
+	sub, err := s.Submit(context.Background(), request())
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := waitKey{sub.Operation.Namespace, sub.Operation.ID}
+	first, err := s.subscribe(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := s.subscribe(key)
+	if err != nil || first != second {
+		t.Fatalf("pollers not shared: %v", err)
+	}
+	s.unsubscribe(key, first)
+	s.waitMu.Lock()
+	n := s.waits[key].subscribers
+	s.waitMu.Unlock()
+	if n != 1 {
+		t.Fatalf("remaining subscribers=%d", n)
+	}
+	s.unsubscribe(key, second)
+	replacement, err := s.subscribe(key)
+	if err != nil || replacement == first {
+		t.Fatalf("old poller reused: %v", err)
+	}
+	select {
+	case <-first.done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("abandoned poller did not stop")
+	}
+	s.waitMu.Lock()
+	current := s.waits[key]
+	s.waitMu.Unlock()
+	if current != replacement {
+		t.Fatal("old cleanup removed replacement")
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-replacement.done:
+		if !errors.Is(replacement.err, ErrClosed) {
+			t.Fatalf("close error: %v", replacement.err)
+		}
+	default:
+		t.Fatal("Close returned before poller stopped")
+	}
+	s.unsubscribe(key, replacement)
+	if _, err := s.Wait(context.Background(), key.namespace, key.id); !errors.Is(err, ErrClosed) {
+		t.Fatalf("Wait after Close: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSharedWaitClose(t *testing.T) {
+	s := openTest(t, filepath.Join(t.TempDir(), "close.db"))
+	sub, err := s.Submit(context.Background(), request())
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := waitKey{sub.Operation.Namespace, sub.Operation.ID}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	results := make(chan error, 2)
+	for i := 0; i < 2; i++ {
+		go func() { _, err := s.Wait(ctx, key.namespace, key.id); results <- err }()
+	}
+	// Wait for both actual subscribers before closing their shared poller.
+	for {
+		s.waitMu.Lock()
+		p := s.waits[key]
+		ready := p != nil && p.subscribers == 2
+		s.waitMu.Unlock()
+		if ready {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatal("waiters did not subscribe")
+		case <-time.After(time.Millisecond):
+		}
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if err := <-results; !errors.Is(err, ErrClosed) {
+			t.Fatalf("active Wait on close: %v", err)
+		}
+	}
+}
+
+func TestCompletedPollerDoesNotCacheFailureAcrossRetry(t *testing.T) {
+	s := openTest(t, filepath.Join(t.TempDir(), "retry-wait.db"))
+	op, _ := failedTest(t, s)
+	key := waitKey{op.Namespace, op.ID}
+	p, err := s.subscribe(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-p.done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("terminal poller did not finish")
+	}
+	// Retain the old subscriber while reopening the operation.
+	if _, err := s.Retry(context.Background(), retryRequest(op)); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	if got, err := s.Wait(ctx, op.Namespace, op.ID); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("reused terminal failure: %+v %v", got, err)
+	}
+	s.unsubscribe(key, p)
+	c := claimTest(t, s)
+	if err := s.Complete(context.Background(), c, []byte("recovered")); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Wait(context.Background(), op.Namespace, op.ID)
+	if err != nil || got.State != StateSucceeded {
+		t.Fatalf("retry outcome: %+v %v", got, err)
 	}
 }

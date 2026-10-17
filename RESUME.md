@@ -75,19 +75,30 @@ raw report. Its build metadata records the parent revision with modified=true,
 because the measurement was captured before this milestone's commit. Source and
 report are shipped together; future comparisons must identify their code/config.
 
+## Shared waiting milestone completed
+
+Wait now shares repeated pending reads through one local poller per Store,
+namespace and operation. Each caller performs its immediate read and final read;
+terminal outcomes are never cached across retry cycles. Caller cancellation only
+detaches that subscriber. The last departure cancels the poller. Store.Close marks
+the Store closed, cancels and joins pollers, then closes SQLite; Wait exposes
+ErrClosed. Registry entries are removed before publishing terminal notifications,
+and old poller cleanup cannot delete a replacement. No schema change.
+
+Race tests cover shared lifetime, cancellation/reattachment, old-cleanup overlap,
+active Wait shutdown, repeated Close, failure/retry freshness and independent input,
+result and completion-time values; existing 100-caller and cross-process tests pass.
+Local go vet, go test -race -count=1 ./... and go build ./... passed. The full
+ordinary-build process demo and isolated measurements passed. New report:
+docs/measurements/2026-10-17-shared-wait-linux-amd64.json (parent8388d422,
+modified=true); original report preserved. For 100 waiters, median CPU fell from
+84.145ms to 18.805ms and Go allocated bytes from 3,890,088 to 549,264 in the 1s
+samples. Single-waiter allocations increased slightly; write latency was mixed.
+See docs/MEASUREMENTS.md for limitations. These are short samples, not an SLA.
+
 ## Exact next step
 
-Use the baseline to improve shared waiting before expanding interfaces. The current
-Wait polls per caller even when callers share the same operation. Consider one
-local poller per Store/namespace/operation with independent subscribers, while
-retaining periodic SQLite polling for cross-process changes. Prove independent
-wait cancellation, independent result bytes, no lost wakeups, cleanup when the last
-waiter leaves, Store.Close behavior, and fresh observations after an operator retry
-reopens failed work. Do not leave cached terminal outcomes attached to a later cycle.
-Compare before/after with the existing isolated-process harness and preserve this
-baseline rather than overwriting it. A slower/mixed result is still a valid finding.
-
-Then add practical storage/capacity and payload-retention controls. Distinguish
+Add practical storage/capacity and payload-retention controls. Distinguish
 removing payload bytes from deleting identity/action tombstones: deleting those
 records can re-execute an old submission or retry action. Define retention guarantees
 before schema changes. History may be much larger for multi-attempt work than this

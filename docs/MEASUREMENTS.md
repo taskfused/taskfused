@@ -131,3 +131,42 @@ The operator-retry scenario recorded an initial failure, one additional grant an
 one replay. Attempt 2 succeeded with the original max-attempt policy unchanged,
 and two-row event pages returned the complete six-event history. The harness never
 runs arbitrary submitted commands and uses only built-in Go handlers.
+
+
+## Shared waiting comparison
+
+The follow-up raw report is
+[2026-10-17-shared-wait-linux-amd64.json](measurements/2026-10-17-shared-wait-linux-amd64.json).
+The original report above is unchanged. Both use the default workload, three
+fresh-process samples per waiter count, one second per sample and 100ms polling,
+on Linux amd64 / Go 1.26.1 / SQLite 3.50.4. The follow-up was built from parent
+8388d422 with working changes (modified=true), shipped with this report. This
+is a short development comparison with uncontrolled host activity, not a capacity SLA.
+
+| Waiters | CPU median before / after (ms) | Go allocated bytes median before / after |
+| --- | ---: | ---: |
+| 0 | 0.193 / 0.178 | 768 / 1,248 |
+| 1 | 6.938 / 5.805 | 41,632 / 45,752 |
+| 100 | 84.145 / 18.805 | 3,890,088 / 549,264 |
+
+For 100 waiters this is about 78% less total process CPU and 86% fewer Go allocated
+bytes during the sample. A single waiter has slightly higher allocation cost due
+to the additional registry, goroutine and notification lifecycle. Each call still
+reads immediately and again upon terminal notification; only repeated pending
+reads are shared. Native SQLite allocations remain excluded from Go allocation
+metrics. SQL read counts are not instrumented. No sample grew database files or
+changed the pending operation, attempt or event counts.
+
+Unrelated durable-write latency was mixed: Submit p50/p95/p99 changed from
+1.007/2.401/3.317ms to 0.862/3.083/6.804ms, and RunOnce from
+2.131/4.843/8.574ms to 2.263/5.610/9.337ms. This change does not optimize those paths;
+no general write-throughput improvement is claimed. Completed closed database
+growth was 1,388,544 bytes versus 1,392,640, a one-page layout difference rather
+than a retention improvement. The functional process-kill recovery, independent
+caller timeout, shared execution, cancellation and operator retry checks all passed.
+
+One poller belongs to each active Store/namespace/operation subscription group.
+The last subscriber cancels it; Close cancels and joins remaining pollers. Results
+are independently read rather than cached so a retry can reopen failed work
+without leaving a terminal snapshot attached to new waits. Independent processes
+still use SQLite polling. Schema and durable execution rules are unchanged.

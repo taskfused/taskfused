@@ -3,6 +3,7 @@ package taskfused
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -10,33 +11,129 @@ func terminal(state string) bool {
 	return state == StateSucceeded || state == StateFailed || state == StateCanceled
 }
 
-// Wait reads until the operation reaches a terminal state. Execution failure and
-// operation cancellation are returned as Operation states with a nil API error.
-// Context cancellation stops only this wait and returns the context error. It does
-// not mutate the operation, its lease, its attempts, or other callers' waits.
-//
-// Wait performs an immediate read, then polls local SQLite every 100ms. It works
-// across Store instances/processes without an in-memory subscription registry.
+// ErrClosed is returned by Wait when its Store is closed.
+var ErrClosed = errors.New("store closed")
+
+type waitKey struct{ namespace, id string }
+type waitPoll struct {
+	done        chan struct{}
+	cancel      context.CancelFunc
+	subscribers int
+	err         error // Published before done closes.
+}
+
+// Wait reads immediately, then shares a 100ms SQLite poller with other local
+// callers for this Store, namespace and operation. Other processes remain visible.
+// Failure/cancellation are terminal Operation states with a nil API error.
+// Canceling ctx stops only this caller. Each result is independently read, so
+// payloads never alias and a reopened retry cannot reuse a cached terminal result.
 func (s *Store) Wait(ctx context.Context, namespace, id string) (Operation, error) {
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
 	for {
 		if err := ctx.Err(); err != nil {
 			return Operation{}, err
 		}
+		s.waitMu.Lock()
+		closed := s.closed
+		s.waitMu.Unlock()
+		if closed {
+			return Operation{}, ErrClosed
+		}
 		op, err := s.Get(ctx, namespace, id)
 		if err != nil {
+			// Close can finish between the preflight check and this read.
+			s.waitMu.Lock()
+			closed = s.closed
+			s.waitMu.Unlock()
+			if closed && ctx.Err() == nil {
+				return Operation{}, ErrClosed
+			}
 			return Operation{}, err
 		}
 		if terminal(op.State) {
 			return op, nil
 		}
+		key := waitKey{namespace, id}
+		p, err := s.subscribe(key)
+		if err != nil {
+			return Operation{}, err
+		}
 		select {
 		case <-ctx.Done():
+			s.unsubscribe(key, p)
 			return Operation{}, ctx.Err()
-		case <-ticker.C:
+		case <-p.done:
+			s.unsubscribe(key, p)
+			if p.err != nil {
+				return Operation{}, p.err
+			}
+			// Re-read rather than caching a terminal snapshot across retry cycles.
 		}
 	}
+}
+
+func (s *Store) subscribe(key waitKey) (*waitPoll, error) {
+	s.waitMu.Lock()
+	defer s.waitMu.Unlock()
+	if s.closed {
+		return nil, ErrClosed
+	}
+	if s.waits == nil {
+		s.waits = make(map[waitKey]*waitPoll)
+	}
+	p := s.waits[key]
+	if p == nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		p = &waitPoll{done: make(chan struct{}), cancel: cancel}
+		s.waits[key] = p
+		s.waitWG.Add(1)
+		go s.pollWait(ctx, key, p)
+	}
+	p.subscribers++
+	return p, nil
+}
+
+func (s *Store) unsubscribe(key waitKey, p *waitPoll) {
+	s.waitMu.Lock()
+	defer s.waitMu.Unlock()
+	p.subscribers--
+	if p.subscribers == 0 {
+		if s.waits[key] == p {
+			delete(s.waits, key)
+		}
+		p.cancel()
+	}
+}
+
+func (s *Store) pollWait(ctx context.Context, key waitKey, p *waitPoll) {
+	defer s.waitWG.Done()
+	defer p.cancel()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	var err error
+	for {
+		var op Operation
+		op, err = s.Get(ctx, key.namespace, key.id)
+		if err != nil || terminal(op.State) {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+		case <-ticker.C:
+			continue
+		}
+		break
+	}
+	s.waitMu.Lock()
+	if s.waits[key] == p {
+		delete(s.waits, key)
+	}
+	if s.closed {
+		err = ErrClosed
+	}
+	p.err = err
+	close(p.done)
+	s.waitMu.Unlock()
 }
 
 // Cancellation reports whether this call changed a nonterminal operation.

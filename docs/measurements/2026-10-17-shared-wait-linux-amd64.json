@@ -1,0 +1,422 @@
+{
+  "generated_at": "2026-10-17T19:05:42.639293113Z",
+  "environment": {
+    "go": "go1.26.1",
+    "os": "linux",
+    "arch": "amd64",
+    "logical_cpus": 9,
+    "gomaxprocs": 9,
+    "sqlite": "3.50.4",
+    "cgroup_cpu_max": "800000 100000",
+    "storage": "os.MkdirTemp; underlying physical storage not characterized",
+    "build_settings": {
+      "CGO_ENABLED": "1",
+      "GOAMD64": "v1",
+      "vcs.modified": "true",
+      "vcs.revision": "8388d422e8fadde5cd883a06c77f54969648cc00"
+    }
+  },
+  "functional": {
+    "shared": {
+      "requests": 100,
+      "new_operations": 1,
+      "joined": 99,
+      "successful_waiters": 99,
+      "timed_out_waiters": 1,
+      "attempts": 1,
+      "wait_elapsed_including_demo_delay": {
+        "samples": 99,
+        "min_ms": 301.236934,
+        "p50_ms": 303.404213,
+        "p95_ms": 306.004773,
+        "p99_ms": 306.365974,
+        "max_ms": 306.365974,
+        "mean_ms": 303.54069264646466
+      }
+    },
+    "crash": {
+      "kill_exit": "signal: killed",
+      "attempts": 2,
+      "old_token": 1,
+      "new_token": 2,
+      "same_operation": true,
+      "stale_commit_rejected": true,
+      "kill_to_observed_success_ms": 1101.687258
+    },
+    "cancellation": {
+      "state": "canceled",
+      "observed_by_handler": true,
+      "cancel_to_handler_observation_ms": 334.241985,
+      "survivor_succeeded": true
+    },
+    "retry": {
+      "applied_actions": 1,
+      "replays": 1,
+      "attempts": 2,
+      "original_max_attempts": 1,
+      "attempt_limit": 2,
+      "events": 6,
+      "event_kinds": [
+        "submitted",
+        "claimed",
+        "failed",
+        "retry_requested",
+        "claimed",
+        "succeeded"
+      ]
+    }
+  },
+  "storage": {
+    "operations": 1000,
+    "input_bytes_per_operation": 128,
+    "result_bytes_per_operation": 128,
+    "mode": "sequential submission, then sequential RunOnce with a trivial echo handler; WAL/FULL",
+    "empty_closed": {
+      "main_bytes": 81920,
+      "wal_bytes": 0,
+      "shm_bytes": 0,
+      "total_bytes": 81920
+    },
+    "queued_live": {
+      "main_bytes": 692224,
+      "wal_bytes": 4152992,
+      "shm_bytes": 32768,
+      "total_bytes": 4877984
+    },
+    "queued_closed": {
+      "main_bytes": 692224,
+      "wal_bytes": 0,
+      "shm_bytes": 0,
+      "total_bytes": 692224
+    },
+    "completed_live": {
+      "main_bytes": 1466368,
+      "wal_bytes": 4152992,
+      "shm_bytes": 32768,
+      "total_bytes": 5652128
+    },
+    "completed_closed": {
+      "main_bytes": 1470464,
+      "wal_bytes": 0,
+      "shm_bytes": 0,
+      "total_bytes": 1470464
+    },
+    "completed_growth_bytes": 1388544,
+    "amortized_completed_growth_per_operation_bytes": 1388.544,
+    "records": {
+      "operations": 1000,
+      "attempts": 1000,
+      "events": 3000
+    },
+    "submission": {
+      "samples": 1000,
+      "min_ms": 0.334241,
+      "p50_ms": 0.86227,
+      "p95_ms": 3.083092,
+      "p99_ms": 6.803758,
+      "max_ms": 21.957473,
+      "mean_ms": 1.20085143
+    },
+    "submission_phase_ms": 1201.000436,
+    "run_once": {
+      "samples": 1000,
+      "min_ms": 1.202864,
+      "p50_ms": 2.263484,
+      "p95_ms": 5.610137,
+      "p99_ms": 9.337248,
+      "max_ms": 97.108254,
+      "mean_ms": 2.894955079
+    },
+    "execution_phase_ms": 2895.440526
+  },
+  "waiting_samples": [
+    {
+      "repetition": 1,
+      "waiters": 0,
+      "requested_duration_ms": 1000,
+      "actual_wall_ms": 1000.297505,
+      "process_cpu": {
+        "available": true,
+        "user_ms": 0.088,
+        "system_ms": 0.09,
+        "total_ms": 0.178,
+        "percent_of_one_core": 0.017794705985995637
+      },
+      "go_allocated_bytes": 1248,
+      "go_allocations": 12,
+      "gc_count": 0,
+      "configured_poll_interval_ms": 100,
+      "waits_finished": 0,
+      "before_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "after_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "file_growth_bytes": 0
+    },
+    {
+      "repetition": 2,
+      "waiters": 0,
+      "requested_duration_ms": 1000,
+      "actual_wall_ms": 1000.274863,
+      "process_cpu": {
+        "available": true,
+        "user_ms": 0.121,
+        "system_ms": 0.057,
+        "total_ms": 0.178,
+        "percent_of_one_core": 0.017795108783014574
+      },
+      "go_allocated_bytes": 1360,
+      "go_allocations": 13,
+      "gc_count": 0,
+      "configured_poll_interval_ms": 100,
+      "waits_finished": 0,
+      "before_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "after_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "file_growth_bytes": 0
+    },
+    {
+      "repetition": 3,
+      "waiters": 0,
+      "requested_duration_ms": 1000,
+      "actual_wall_ms": 1000.168731,
+      "process_cpu": {
+        "available": true,
+        "user_ms": 0,
+        "system_ms": 0.204,
+        "total_ms": 0.204,
+        "percent_of_one_core": 0.020396558468293087
+      },
+      "go_allocated_bytes": 1232,
+      "go_allocations": 11,
+      "gc_count": 0,
+      "configured_poll_interval_ms": 100,
+      "waits_finished": 0,
+      "before_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "after_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "file_growth_bytes": 0
+    },
+    {
+      "repetition": 1,
+      "waiters": 1,
+      "requested_duration_ms": 1000,
+      "actual_wall_ms": 1000.601806,
+      "process_cpu": {
+        "available": true,
+        "user_ms": 1.09,
+        "system_ms": 4.715,
+        "total_ms": 5.805,
+        "percent_of_one_core": 0.5801508617305055
+      },
+      "go_allocated_bytes": 46080,
+      "go_allocations": 1150,
+      "gc_count": 0,
+      "configured_poll_interval_ms": 100,
+      "waits_finished": 1,
+      "before_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "after_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "file_growth_bytes": 0
+    },
+    {
+      "repetition": 2,
+      "waiters": 1,
+      "requested_duration_ms": 1000,
+      "actual_wall_ms": 1001.013349,
+      "process_cpu": {
+        "available": true,
+        "user_ms": 6.588,
+        "system_ms": 0,
+        "total_ms": 6.588,
+        "percent_of_one_core": 0.658133081499995
+      },
+      "go_allocated_bytes": 45528,
+      "go_allocations": 1152,
+      "gc_count": 0,
+      "configured_poll_interval_ms": 100,
+      "waits_finished": 1,
+      "before_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "after_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "file_growth_bytes": 0
+    },
+    {
+      "repetition": 3,
+      "waiters": 1,
+      "requested_duration_ms": 1000,
+      "actual_wall_ms": 1001.099084,
+      "process_cpu": {
+        "available": true,
+        "user_ms": 5.738,
+        "system_ms": 0,
+        "total_ms": 5.738,
+        "percent_of_one_core": 0.5731700379819746
+      },
+      "go_allocated_bytes": 45752,
+      "go_allocations": 1154,
+      "gc_count": 0,
+      "configured_poll_interval_ms": 100,
+      "waits_finished": 1,
+      "before_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "after_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "file_growth_bytes": 0
+    },
+    {
+      "repetition": 1,
+      "waiters": 100,
+      "requested_duration_ms": 1000,
+      "actual_wall_ms": 1001.429514,
+      "process_cpu": {
+        "available": true,
+        "user_ms": 7.069,
+        "system_ms": 10.443,
+        "total_ms": 17.512,
+        "percent_of_one_core": 1.7487002085700463
+      },
+      "go_allocated_bytes": 549264,
+      "go_allocations": 11937,
+      "gc_count": 0,
+      "configured_poll_interval_ms": 100,
+      "waits_finished": 100,
+      "before_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "after_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "file_growth_bytes": 0
+    },
+    {
+      "repetition": 2,
+      "waiters": 100,
+      "requested_duration_ms": 1000,
+      "actual_wall_ms": 1001.037615,
+      "process_cpu": {
+        "available": true,
+        "user_ms": 11.662,
+        "system_ms": 7.143,
+        "total_ms": 18.805,
+        "percent_of_one_core": 1.8785507875246026
+      },
+      "go_allocated_bytes": 548848,
+      "go_allocations": 11923,
+      "gc_count": 0,
+      "configured_poll_interval_ms": 100,
+      "waits_finished": 100,
+      "before_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "after_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "file_growth_bytes": 0
+    },
+    {
+      "repetition": 3,
+      "waiters": 100,
+      "requested_duration_ms": 1000,
+      "actual_wall_ms": 1002.228241,
+      "process_cpu": {
+        "available": true,
+        "user_ms": 17.829,
+        "system_ms": 11.941,
+        "total_ms": 29.77,
+        "percent_of_one_core": 2.9703812746581746
+      },
+      "go_allocated_bytes": 551600,
+      "go_allocations": 11951,
+      "gc_count": 0,
+      "configured_poll_interval_ms": 100,
+      "waits_finished": 100,
+      "before_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "after_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 111272,
+        "shm_bytes": 32768,
+        "total_bytes": 148136
+      },
+      "file_growth_bytes": 0
+    }
+  ],
+  "notes": [
+    "Development baseline on this environment, not a capacity claim or cross-machine comparison.",
+    "SQLite WAL with Store's FULL synchronization; filesystem/hardware durability is not independently validated.",
+    "Submission and RunOnce latency samples are sequential with trivial handlers, no network work, and no race instrumentation unless the binary was built with -race.",
+    "Waiting samples run in fresh processes; CPU and Go allocations include waiter setup/teardown. Go allocation counts exclude SQLite/C allocations. No SQL-read-count instrumentation is enabled.",
+    "Zero waiters is an idle baseline. Compare repeated samples; short CPU differences can be noise. Host activity is not controlled.",
+    "File sizes are logical lengths, not allocated disk blocks. Closed sizes include automatic last-connection checkpoint effects; live WAL/SHM sizes are reported separately.",
+    "The real process kill deliberately bypasses worker/store cleanup. Recovery delay includes lease expiry, scheduling, SQLite access and 100ms Wait polling."
+  ]
+}
