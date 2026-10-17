@@ -1,0 +1,84 @@
+// Copyright 2026 TaskFused. All rights reserved.
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"os/signal"
+
+	"github.com/taskfused/taskfused"
+)
+
+func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	if err := run(ctx, os.Args[1:], os.Stdout, os.Stderr); err != nil {
+		fmt.Fprintln(os.Stderr, "taskfused:", err)
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context, args []string, out, errOut io.Writer) error {
+	if len(args) == 0 {
+		return fmt.Errorf("usage: taskfused <submit|get> [flags]; use -h after a command")
+	}
+	if args[0] != "submit" && args[0] != "get" {
+		return fmt.Errorf("unknown command %q", args[0])
+	}
+	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	path := fs.String("db", "taskfused.db", "local SQLite database path")
+	namespace := fs.String("namespace", "", "required operation namespace")
+	var handler, version, key, input, id string
+	var join bool
+	if args[0] == "submit" {
+		fs.StringVar(&handler, "handler", "", "required handler name")
+		fs.StringVar(&version, "version", "", "required handler version")
+		fs.StringVar(&key, "key", "", "required durable operation key")
+		fs.StringVar(&input, "input", "", "UTF-8 input (library API also accepts arbitrary bytes)")
+		fs.BoolVar(&join, "join", false, "join an existing operation with identical input")
+	} else {
+		fs.StringVar(&id, "id", "", "required operation ID")
+	}
+	if err := fs.Parse(args[1:]); err != nil {
+		if err == flag.ErrHelp {
+			return nil
+		}
+		return err
+	}
+	if fs.NArg() != 0 {
+		return fmt.Errorf("unexpected positional arguments")
+	}
+	if *namespace == "" {
+		return fmt.Errorf("-namespace is required")
+	}
+	if args[0] == "get" && id == "" {
+		return fmt.Errorf("-id is required")
+	}
+	if args[0] == "submit" && (handler == "" || version == "" || key == "") {
+		return fmt.Errorf("-handler, -version and -key are required")
+	}
+	store, err := taskfused.Open(ctx, *path)
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+	encoder := json.NewEncoder(out)
+	encoder.SetIndent("", "  ")
+	if args[0] == "submit" {
+		result, err := store.Submit(ctx, taskfused.Request{Namespace: *namespace, Handler: handler, Version: version, Key: key, Input: []byte(input), JoinExisting: join})
+		if err != nil {
+			return err
+		}
+		return encoder.Encode(result)
+	}
+	result, err := store.Get(ctx, *namespace, id)
+	if err != nil {
+		return err
+	}
+	return encoder.Encode(result)
+}
