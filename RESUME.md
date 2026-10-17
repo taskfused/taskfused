@@ -1,10 +1,10 @@
 # Resume TaskFused
 
-Updated: 2026-10-17. Completed milestone: reproducible HTTP recovery demo.
+Updated: 2026-10-17. Completed milestone: storage faults and readiness review.
 
 ## Read first
 
-Read README.md, docs/CONTRACT.md, docs/DEVELOPMENT_PLAN.md, docs/MEASUREMENTS.md, docs/STORAGE.md, docs/HTTP.md and docs/HTTP_DEMO.md.
+Read README.md, docs/CONTRACT.md, docs/DEVELOPMENT_PLAN.md, docs/MEASUREMENTS.md, docs/STORAGE.md, docs/HTTP.md, docs/HTTP_DEMO.md, docs/FAULTS.md and docs/READINESS.md.
 Repository: https://github.com/taskfused/taskfused. Intended site: TaskFused.com;
 no website repository/hosting target has been provided. Work is authorized on this
 code repository. No release license is selected; NOTICE reserves rights.
@@ -195,19 +195,50 @@ tests add IPv6 when available and stalled headers/bodies that must time out with
 writing records or blocking other clients. Browser visual verification remains
 unavailable because no browser binary is installed.
 
+## Storage fault milestone completed
+
+faults_test.go adds 26 statement/deferred-commit cases over 13 mutation boundaries:
+Submit, initial Claim, expired recovery, exhausted recovery, Renew, Complete, Fail,
+automatic retry scheduling, Cancel, Retry, pruning and policy insert/replacement.
+Triggers inject statement abort or deferred foreign-key failure at commit without
+production hooks. Full production-table/sequence snapshots must stay unchanged;
+the same action succeeds after fault removal. Multi-result pruning has a separate
+whole-batch commit rollback check. No schema or core execution changes were needed.
+
+Real SQLite error checks: max_page_count forces SQLITE_FULL for 1 MiB submission/
+completion, mode=ro rejects writes while reads survive, and independent Stores
+exercise SQLITE_BUSY with a shortened test timeout then recover after lock release.
+These are not physical disk, VFS I/O, fsync or power-loss tests. Worker renewal faults
+cancel cooperative handlers and leave work for expiry. Result commit failure shows
+repeated handler invocation/effects unless the application deduplicates by ID; the
+in-memory effect stand-in does not implement durable external idempotency.
+
+HTTP tests drop the connection after successful submission/retry commit and prove
+same-identity/action replay creates no duplicate work or grant. Internal HTTP500
+logs now use slog.Default (NewHandlerWithLogger allows embedding configuration),
+with only method, registered route, error type and numeric SQLite codes. Private
+request values, raw error messages, raw paths/queries and identifiers are excluded
+and tested. Known client errors/capacity/timeouts do not become internal logs.
+
+Local vet, full race tests and build passed. FAULTS.md documents exact fault models,
+uncertain acknowledgment recovery and limitations. READINESS.md concludes the scoped
+local prototype is ready for evaluation, while public licensing, candidate packaging,
+artifact validation and version policy remain. Go 1.26.1/Linux amd64 is tested;
+minimum Go 1.24 and other targets are not yet qualified. Browser rendering remains
+unverified. No release, license or hosting choice has been made.
+
 ## Exact next step
 
-Complete an operational fault milestone before release packaging: inject SQLite
-write/commit failures around submission, claims, result commits, retry actions and
-retention, checking rollback, uncertain acknowledgments, recovery and external
-idempotency boundaries. Include practical disk-full/read-only/lock-contention
-behavior where reproducible; logical admission is not a disk quota. Add internal
-error observability without leaking payloads, then review release-readiness against
-the original contract and report concrete remaining gaps. Keep the local HTTP/API
-contracts stable. Public release still needs a chosen license and website work
-still needs a separate site target. Do not add remote hosting/auth, arbitrary shell
-jobs, workflow graphs, multi-host or automatic fusion by default. Browser rendering
-can be checked once a browser runtime exists. The ten-session estimate is a budget.
+Prepare a clean-checkout release candidate process without publishing it: a local
+build/checksum/artifact-verification script, supported-target/compatibility notes
+and a quickstart smoke test using the produced executable. Keep the current notice
+intact. Do not choose a license, push a tag or publish binaries implicitly. Review
+READINESS.md for concrete remaining public-release gates; extra engine features
+are not needed to complete the scoped local prototype. Physical filesystem/VFS
+fault qualification and broader load tests precede stronger production claims.
+TaskFused.com still needs a separate site target. No remote hosting/authentication,
+arbitrary commands, workflow graphs, multi-host backend or automatic fusion is
+implied by continuing. The original ten-session estimate is a planning budget.
 
 ## Repository transport and session discipline
 

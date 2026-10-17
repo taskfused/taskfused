@@ -63,7 +63,9 @@ complete; see docs/MEASUREMENTS.md. It checks real process-kill recovery and use
 isolated waiter samples. Shared polling is now measured and implemented. Schema v5 adds durable namespace
 admission limits, usage inspection and bounded succeeded-result pruning while
 retaining exact input/identity/action records. See docs/STORAGE.md. Remaining:
-broaden storage/IO fault tests and complete release-readiness review. The loopback HTTP surface and
+prepare a clean-checkout candidate packaging process. Storage fault tests and the
+release-readiness review are complete within the local prototype scope; see
+docs/FAULTS.md and docs/READINESS.md. The loopback HTTP surface and
 read-only status page are now implemented; see docs/HTTP.md. Latency/storage observations are not release claims.
 
 Sessions 9–10: usable prototype. Add CLI inspection/retry, minimal HTTP endpoints,
@@ -95,5 +97,8 @@ A first public release requires tested execution/recovery, clear operational
 limits, honest at-least-once semantics, a selected license, CI, reproducible demos,
 and a versioned release procedure. The public repository is a prototype with an
 all-rights-reserved notice. Local execution/recovery now exist, but a public
-release still needs the remaining operational and release work. TaskFused.com can
+release still needs the licensing and packaging work listed in READINESS.md.
+Statement/commit/full-storage/read-only/contention and lost-acknowledgment tests
+now supplement process-crash coverage; physical filesystem/VFS durability remains
+unqualified. TaskFused.com can
 document the prototype once a separate site target is provided. Do not create a replacement site or choose hosting implicitly.

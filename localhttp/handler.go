@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime"
 	"net"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/taskfused/taskfused"
 )
 
@@ -33,6 +35,17 @@ func bad(message string) error    { return &apiError{400, "invalid_request", mes
 // request. Serve supplies the actual bound address. Embedders must also enforce
 // loopback binding and suitable transport timeouts; prefer Serve for normal use.
 func NewHandler(store *taskfused.Store, authority string) (http.Handler, error) {
+	return NewHandlerWithLogger(store, authority, slog.Default())
+}
+
+// NewHandlerWithLogger reports internal HTTP500 failures using safe metadata only:
+// method, registered route pattern, error type and SQLite numeric codes. Raw error
+// messages, request bodies, paths, query values and operation identifiers are omitted.
+// A nil logger uses slog.Default. The logger must support concurrent requests.
+func NewHandlerWithLogger(store *taskfused.Store, authority string, logger *slog.Logger) (http.Handler, error) {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	host, port, err := net.SplitHostPort(authority)
 	ip := net.ParseIP(host)
 	n, perr := strconv.Atoi(port)
@@ -49,7 +62,14 @@ func NewHandler(store *taskfused.Store, authority string) (http.Handler, error) 
 			ctx, cancel := context.WithTimeout(r.Context(), duration)
 			defer cancel()
 			if err := fn(w, r.WithContext(ctx)); err != nil {
-				writeError(w, err)
+				if status := writeError(w, err); status == http.StatusInternalServerError {
+					attrs := []any{"method", r.Method, "route", r.Pattern, "error_type", fmt.Sprintf("%T", err)}
+					var storageErr sqlite3.Error
+					if errors.As(err, &storageErr) {
+						attrs = append(attrs, "sqlite_code", int(storageErr.Code), "sqlite_extended_code", int(storageErr.ExtendedCode))
+					}
+					logger.ErrorContext(r.Context(), "taskfused request failed", attrs...)
+				}
 			}
 		}
 	}
@@ -253,7 +273,7 @@ func writeJSON(w http.ResponseWriter, status int, value any) error {
 	return nil
 }
 
-func writeError(w http.ResponseWriter, err error) {
+func writeError(w http.ResponseWriter, err error) int {
 	response := &apiError{500, "internal_error", "internal storage error"}
 	var explicit *apiError
 	switch {
@@ -273,4 +293,5 @@ func writeError(w http.ResponseWriter, err error) {
 		response = &apiError{503, "unavailable", "request canceled or store closed"}
 	}
 	_ = writeJSON(w, response.status, map[string]any{"error": map[string]string{"code": response.code, "message": response.message}})
+	return response.status
 }

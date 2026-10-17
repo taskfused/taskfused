@@ -252,3 +252,16 @@ Succeeded/failed/canceled Wait outcomes return HTTP200; result_pruned remains
 explicit. Policy changes and pruning have no HTTP mutation route. The status page
 is read-only and escapes operation text. See HTTP.md for route/error mappings,
 limits, shutdown ownership and verification limits. Schema remains v5.
+
+
+## Storage errors and acceptance uncertainty
+
+Storage errors are surfaced rather than converted into successful acceptance or
+handler results. Tested statement and deferred-commit rejection leaves transaction
+state unchanged, including ownership, attempt/action counts, retention metadata
+and events. A successful commit with a lost HTTP acknowledgment is resolved using
+existing submission/action identities. A Claim error never authorizes execution;
+a result commit error cannot undo effects already performed by a handler. Recovery
+may invoke that handler again. HTTP internal errors expose a generic response and
+metadata-only diagnostics. See FAULTS.md for exact injected faults and evidence
+limits; tests do not establish arbitrary filesystem/power-loss durability.

@@ -159,3 +159,15 @@ and stale worker commits stay on the Go API. See HTTP_DEMO.md for boundaries,
 commands and captured IPv4/IPv6 reports. Real slow-header/body tests and IPv6 serving
 coverage now supplement the malformed-body and shutdown tests above. These checks
 do not replace browser visual verification or production load/durability testing.
+
+
+## Internal storage failures and diagnostics
+
+Unknown/internal failures still return HTTP500 with a generic internal_error body.
+The handler now logs safe metadata through slog.Default: method, registered route
+pattern, Go error type and numeric SQLite codes when present. It does not log raw
+error messages, request bodies, raw paths/queries, namespaces or operation IDs.
+Embedders can select a logger with NewHandlerWithLogger. Expected client conflicts,
+capacity rejection and request cancellation/deadlines do not create internal-error
+logs. This is not a general audit/worker log. See FAULTS.md for privacy checks,
+statement/commit faults and lost HTTP acknowledgment recovery rules.

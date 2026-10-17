@@ -7,13 +7,15 @@ operation identities, runs registered Go handlers with leases and bounded retrie
 and stores results and attempt history in local SQLite. Restarted workers can
 recover expired attempts without changing the operation ID or input.
 
-**Status: early execution prototype.** Submission, duplicate joining, leased claims,
+**Status: local evaluation prototype.** Submission, duplicate joining, leased claims,
 renewal, worker concurrency, retries, stored results, crash recovery, shared waiting,
 explicit operation cancellation, failed-operation retry and paginated event
 inspection, durable admission limits and bounded result pruning exist. HTTP
 endpoints and a read-only status page are available on loopback. Multi-host
 coordination is not implemented. External effects require
 handler-level idempotency; arbitrary exactly-once execution is not promised.
+See [the readiness review](docs/READINESS.md) for implemented coverage and the
+remaining licensing/packaging work before a public release.
 
 ## End-to-end demonstration and measurements
 
