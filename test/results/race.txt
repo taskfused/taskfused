@@ -1,0 +1,11 @@
+# Every test with the race detector
+# recorded 2026-10-17 20:23 UTC at 3b71cfe plus uncommitted changes, TaskFused 0.1.0, go1.24.7 linux/amd64
+# Linux 6.18.44-fc-v139, Intel(R) Xeon(R) Processor @ 2.10GHz, 2 CPUs
+# command: go test -race -count=1 ./...
+
+ok  	github.com/taskfused/taskfused	8.531s
+ok  	github.com/taskfused/taskfused/cmd/taskfused	1.116s
+ok  	github.com/taskfused/taskfused/examples/demo	17.028s
+?   	github.com/taskfused/taskfused/examples/worker	[no test files]
+?   	github.com/taskfused/taskfused/internal/buildinfo	[no test files]
+ok  	github.com/taskfused/taskfused/localhttp	6.802s

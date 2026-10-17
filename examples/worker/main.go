@@ -1,4 +1,6 @@
-// Copyright 2026 TaskFused. All rights reserved.
+// Copyright TaskFused.com 2026
+// SPDX-License-Identifier: Apache-2.0
+
 // An intentionally small worker with one built-in echo handler. It is not a
 // general command runner and never evaluates submitted text as executable code.
 package main

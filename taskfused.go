@@ -1,4 +1,5 @@
-// Copyright 2026 TaskFused. All rights reserved.
+// Copyright TaskFused.com 2026
+// SPDX-License-Identifier: Apache-2.0
 
 // Package taskfused provides durable shared operations with leased, at-least-once
 // execution on one host. External side effects require handler-level idempotency.
@@ -20,6 +21,11 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 )
+
+// Version is this release of TaskFused. Raising it on main releases it: once
+// the test workflow passes, the release workflow builds, checks, tags and
+// publishes vX.Y.Z (see RELEASING.md).
+const Version = "0.1.0"
 
 const MaxInputBytes = 1024 * 1024
 

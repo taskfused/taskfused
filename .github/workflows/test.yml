@@ -1,0 +1,35 @@
+name: test
+
+# Every push to main and every pull request: formatting, vet, the full test
+# suite (real worker processes killed and recovered, the shared-request and
+# HTTP demos, storage faults) on Linux and macOS, the race detector on Linux,
+# and the release plan's cases. A passing run on main starts the release
+# workflow, which releases a raised version.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+      - run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test -count=1 ./...
+      - if: runner.os == 'Linux'
+        run: go test -race -count=1 ./...
+      - run: go build ./...
+      - run: python3 -B -m unittest discover -s scripts -p '*_test.py'

@@ -1,10 +1,11 @@
 # TaskFused readiness review
 
-Reviewed 2026-10-17 after candidate packaging. TaskFused is ready for local
-prototype evaluation within its stated single-host Go/SQLite scope. The core and
-loopback interface run end to end, with executable demos and fault tests. A clean-checkout native candidate build/verification process is now implemented.
-There is no tagged public release or authorized public binary distribution. This review is not
-a production reliability certification.
+Reviewed 2026-10-17 for the v0.1.0 release. TaskFused is ready for use within its
+stated single-host Go/SQLite scope. The core and loopback interface run end to end,
+with executable demos and fault tests. It is open source under the Apache License
+2.0, and releases are automated: raising `Version` publishes binaries for Linux,
+macOS and Windows, each smoke-tested on its own kind of machine (RELEASING.md).
+This review is not a production reliability certification.
 
 ## Implemented and checked
 
@@ -20,29 +21,29 @@ a production reliability certification.
 | Demonstrations | Embedded and HTTP self-starting scenarios, ordinary IPv4/IPv6 reports and race-instrumented killed workers |
 | Storage fault behavior | Statement/deferred-commit rollback, SQLITE_FULL page quota, read-only connection, contention and lost HTTP acknowledgments |
 | Diagnostics | Metadata-only internal HTTP500 logs with SQLite codes and privacy tests |
-| Candidate packaging | Clean committed export, provenance for three binaries, normalized archive/checksums, fresh-cache rebuild comparison and extracted-artifact smoke tests |
+| Releases | Static Linux (x86-64, ARM64), macOS (Apple silicon, Intel) and Windows builds; scripts/smoke.py runs submit/join, worker, wait, limits, pruning, HTTP, interrupt shutdown and the killed-worker HTTP demo on each, except Intel macOS; SHA256SUMS; tag and release only after every check passes |
 | Measurements | Preserved ordinary-build baseline and shared-poller comparison, with explicit workload/host caveats |
 
-The full local vet/race/build suite passes on Linux amd64 with Go 1.26.1 and CGO.
-GitHub CI uses Ubuntu and Go 1.26.x and now gates native candidate packaging. go.mod declares Go 1.24; minimum-version and
-other-OS qualification are not established by that CI. SQLite is bundled through
-mattn/go-sqlite3 and requires a C toolchain. Schema is v5; older processes must stop
-before migration. No automatic mixed-version rolling upgrade is supported.
+The full vet/race/build suite passes on Linux amd64 (recorded in test/results/),
+and the test workflow runs the suite on Linux and macOS with Go 1.26.x and the race
+detector on Linux. Windows is covered by the release smoke check, not the full
+suite. go.mod declares Go 1.24; that minimum is not separately tested. SQLite is
+bundled through mattn/go-sqlite3 and requires a C toolchain to build. Schema is v5;
+older processes must stop before migration. No mixed-version rolling upgrade is
+supported. See COMPATIBILITY.md for the version policy.
 
-## Work before a public prototype release
+## Decided for v0.1.0
 
-| Item | State / concrete completion condition |
+| Item | Decision |
 | --- | --- |
-| License decision | NOTICE reserves all rights. Select the intended release license before publishing a tagged source/binary release; dependency notices remain separate. |
-| Versioned packaging | Local candidate-commit IDs, native CGO builds, checksums and extracted-artifact checks are implemented. Choose a public version/tag policy before release. |
-| Release automation | CI now builds/rebuilds and smoke-tests native candidates without uploading them. Public tag/release publication remains intentionally absent and requires explicit authorization. |
-| Compatibility statement | COMPATIBILITY.md scopes candidates to Linux amd64/Go 1.26.x/schema v5 and records dynamic runtime limitations. Public v0 compatibility/version policy still needs a decision. |
-| User-facing validation | Extracted CLI/worker/server/demo quickstart is automated; browser visual rendering remains unverified without a browser runtime. |
+| License | Apache License 2.0, with NOTICE and THIRD_PARTY_LICENSES.md |
+| Versions | vX.Y.Z tags from `Version` in taskfused.go; before 1.0 a minor version may break compatibility, a patch may not |
+| Release automation | The release workflow builds, smoke-tests, tags and publishes after the test workflow passes; no manual step |
+| Targets | Linux x86-64/ARM64 (static), macOS Apple silicon/Intel, Windows x86-64 |
 
-No license, version tag, release publication or hosting choice is implied by this
-review. The website still needs its separate repository/hosting target. Remote
-authentication is intentionally outside the local product scope, not a feature
-silently promised for the release. Local processes can access every namespace.
+Remote authentication is intentionally outside the local product scope, not a
+feature silently promised for the release. Local processes can access every
+namespace. Browser visual rendering of the status page is still unverified.
 
 ## Production qualification remains separate
 
@@ -59,12 +60,8 @@ slots, erase old bytes securely or guarantee file shrinkage. No multi-host backe
 workflow graph, arbitrary command runner, automatic fusion, remote hosting or
 metrics/audit service is required to complete the scoped local prototype.
 
-## Next decision point
+## What comes next
 
-The local prototype and candidate validation path are implemented. Review the
-candidate manifest/quickstart and select the public release license, version policy
-and desired initial binary targets before adding publication automation. Do not
-publish or tag implicitly. Packaging currently has one qualified native target;
-request additional targets only with their own actual build and runtime checks.
-Physical filesystem qualification and broader capacity testing remain prerequisites
-for stronger production claims, not hidden additions to the local prototype scope.
+Not yet decided. CLAUDE.md records the agreed next step once there is one.
+Physical filesystem qualification and broader capacity testing remain
+prerequisites for stronger production claims, not hidden additions to the scope.
