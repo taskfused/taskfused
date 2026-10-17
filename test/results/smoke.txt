@@ -1,11 +1,11 @@
 # The release smoke check on static Linux binaries built as the release workflow builds them
-# recorded 2026-10-17 20:25 UTC at 3b71cfe plus uncommitted changes, TaskFused 0.1.0, go1.24.7 linux/amd64
+# recorded 2026-10-17 20:44 UTC at 35c7363, TaskFused 0.1.0, go1.24.7 linux/amd64
 # Linux 6.18.44-fc-v139, Intel(R) Xeon(R) Processor @ 2.10GHz, 2 CPUs
 # command: python3 scripts/smoke.py BIN
 
-taskfused: 0.1.0 linux/amd64 revision 3b71cfe2cfdc
-taskfused-worker: 0.1.0 linux/amd64 revision 3b71cfe2cfdc
-taskfused-demo: 0.1.0 linux/amd64 revision 3b71cfe2cfdc
+taskfused: 0.1.0 linux/amd64 revision 35c7363b0dc4
+taskfused-worker: 0.1.0 linux/amd64 revision 35c7363b0dc4
+taskfused-demo: 0.1.0 linux/amd64 revision 35c7363b0dc4
 submit, join, worker and wait: passed
 limits and pruning: passed
 HTTP API and status page: passed

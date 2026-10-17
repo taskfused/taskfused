@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-17T20:25:25.125932437Z",
+  "generated_at": "2026-10-17T20:44:18.521929314Z",
   "environment": {
     "go": "go1.24.7",
     "os": "linux",
@@ -12,7 +12,7 @@
       "CGO_ENABLED": "1",
       "GOAMD64": "v1",
       "vcs.modified": "true",
-      "vcs.revision": "3b71cfe2cfdc3295f620acef38d01fbad3b459db"
+      "vcs.revision": "35c7363b0dc4e194f8378f3273435ac798029194"
     }
   },
   "functional": {
@@ -25,12 +25,12 @@
       "attempts": 1,
       "wait_elapsed_including_demo_delay": {
         "samples": 99,
-        "min_ms": 297.863678,
-        "p50_ms": 303.050485,
-        "p95_ms": 306.967306,
-        "p99_ms": 308.323505,
-        "max_ms": 308.323505,
-        "mean_ms": 303.21491195959595
+        "min_ms": 298.613414,
+        "p50_ms": 302.775408,
+        "p95_ms": 305.676134,
+        "p99_ms": 306.13263,
+        "max_ms": 306.13263,
+        "mean_ms": 302.7306050808081
       }
     },
     "crash": {
@@ -40,12 +40,12 @@
       "new_token": 2,
       "same_operation": true,
       "stale_commit_rejected": true,
-      "kill_to_observed_success_ms": 1102.044527
+      "kill_to_observed_success_ms": 1102.002205
     },
     "cancellation": {
       "state": "canceled",
       "observed_by_handler": true,
-      "cancel_to_handler_observation_ms": 334.062668,
+      "cancel_to_handler_observation_ms": 334.390443,
       "survivor_succeeded": true
     },
     "retry": {
@@ -78,30 +78,30 @@
     },
     "queued_live": {
       "main_bytes": 708608,
-      "wal_bytes": 4173592,
+      "wal_bytes": 4157112,
       "shm_bytes": 32768,
-      "total_bytes": 4914968
+      "total_bytes": 4898488
     },
     "queued_closed": {
-      "main_bytes": 708608,
+      "main_bytes": 712704,
       "wal_bytes": 0,
       "shm_bytes": 0,
-      "total_bytes": 708608
+      "total_bytes": 712704
     },
     "completed_live": {
-      "main_bytes": 1667072,
+      "main_bytes": 1683456,
       "wal_bytes": 4169472,
       "shm_bytes": 32768,
-      "total_bytes": 5869312
+      "total_bytes": 5885696
     },
     "completed_closed": {
-      "main_bytes": 1703936,
+      "main_bytes": 1724416,
       "wal_bytes": 0,
       "shm_bytes": 0,
-      "total_bytes": 1703936
+      "total_bytes": 1724416
     },
-    "completed_growth_bytes": 1617920,
-    "amortized_completed_growth_per_operation_bytes": 1617.92,
+    "completed_growth_bytes": 1638400,
+    "amortized_completed_growth_per_operation_bytes": 1638.4,
     "records": {
       "operations": 1000,
       "attempts": 1000,
@@ -109,99 +109,37 @@
     },
     "submission": {
       "samples": 1000,
-      "min_ms": 0.229207,
-      "p50_ms": 0.469685,
-      "p95_ms": 0.813047,
-      "p99_ms": 1.505976,
-      "max_ms": 21.689815,
-      "mean_ms": 0.528367987
+      "min_ms": 0.232803,
+      "p50_ms": 0.557951,
+      "p95_ms": 0.867024,
+      "p99_ms": 1.601749,
+      "max_ms": 7.11396,
+      "mean_ms": 0.588647369
     },
-    "submission_phase_ms": 528.507067,
+    "submission_phase_ms": 588.802561,
     "run_once": {
       "samples": 1000,
-      "min_ms": 0.689325,
-      "p50_ms": 1.269823,
-      "p95_ms": 2.16445,
-      "p99_ms": 3.203336,
-      "max_ms": 4.913881,
-      "mean_ms": 1.385671543
+      "min_ms": 0.732381,
+      "p50_ms": 1.43739,
+      "p95_ms": 2.25402,
+      "p99_ms": 3.749572,
+      "max_ms": 6.01268,
+      "mean_ms": 1.503713151
     },
-    "execution_phase_ms": 1385.865598
+    "execution_phase_ms": 1503.917123
   },
   "waiting_samples": [
     {
       "repetition": 1,
       "waiters": 0,
       "requested_duration_ms": 1000,
-      "actual_wall_ms": 1000.166208,
+      "actual_wall_ms": 1000.218161,
       "process_cpu": {
         "available": true,
-        "user_ms": 0.128,
-        "system_ms": 0,
-        "total_ms": 0.128,
-        "percent_of_one_core": 0.012797872891142509
-      },
-      "go_allocated_bytes": 768,
-      "go_allocations": 11,
-      "gc_count": 0,
-      "configured_poll_interval_ms": 100,
-      "waits_finished": 0,
-      "before_files": {
-        "main_bytes": 4096,
-        "wal_bytes": 115392,
-        "shm_bytes": 32768,
-        "total_bytes": 152256
-      },
-      "after_files": {
-        "main_bytes": 4096,
-        "wal_bytes": 115392,
-        "shm_bytes": 32768,
-        "total_bytes": 152256
-      },
-      "file_growth_bytes": 0
-    },
-    {
-      "repetition": 2,
-      "waiters": 0,
-      "requested_duration_ms": 1000,
-      "actual_wall_ms": 1000.194723,
-      "process_cpu": {
-        "available": true,
-        "user_ms": 0.026,
-        "system_ms": 0.104,
-        "total_ms": 0.13,
-        "percent_of_one_core": 0.012997469093825643
-      },
-      "go_allocated_bytes": 1200,
-      "go_allocations": 11,
-      "gc_count": 0,
-      "configured_poll_interval_ms": 100,
-      "waits_finished": 0,
-      "before_files": {
-        "main_bytes": 4096,
-        "wal_bytes": 115392,
-        "shm_bytes": 32768,
-        "total_bytes": 152256
-      },
-      "after_files": {
-        "main_bytes": 4096,
-        "wal_bytes": 115392,
-        "shm_bytes": 32768,
-        "total_bytes": 152256
-      },
-      "file_growth_bytes": 0
-    },
-    {
-      "repetition": 3,
-      "waiters": 0,
-      "requested_duration_ms": 1000,
-      "actual_wall_ms": 1000.233022,
-      "process_cpu": {
-        "available": true,
-        "user_ms": 0.178,
-        "system_ms": 0,
-        "total_ms": 0.178,
-        "percent_of_one_core": 0.017795853174701524
+        "user_ms": 0.083,
+        "system_ms": 0.083,
+        "total_ms": 0.166,
+        "percent_of_one_core": 0.01659637931729176
       },
       "go_allocated_bytes": 1216,
       "go_allocations": 12,
@@ -223,19 +161,81 @@
       "file_growth_bytes": 0
     },
     {
+      "repetition": 2,
+      "waiters": 0,
+      "requested_duration_ms": 1000,
+      "actual_wall_ms": 1000.188872,
+      "process_cpu": {
+        "available": true,
+        "user_ms": 0.06,
+        "system_ms": 0.119,
+        "total_ms": 0.179,
+        "percent_of_one_core": 0.01789661982961954
+      },
+      "go_allocated_bytes": 768,
+      "go_allocations": 11,
+      "gc_count": 0,
+      "configured_poll_interval_ms": 100,
+      "waits_finished": 0,
+      "before_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 115392,
+        "shm_bytes": 32768,
+        "total_bytes": 152256
+      },
+      "after_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 115392,
+        "shm_bytes": 32768,
+        "total_bytes": 152256
+      },
+      "file_growth_bytes": 0
+    },
+    {
+      "repetition": 3,
+      "waiters": 0,
+      "requested_duration_ms": 1000,
+      "actual_wall_ms": 1000.241277,
+      "process_cpu": {
+        "available": true,
+        "user_ms": 0.096,
+        "system_ms": 0.054,
+        "total_ms": 0.15,
+        "percent_of_one_core": 0.014996381718008224
+      },
+      "go_allocated_bytes": 768,
+      "go_allocations": 11,
+      "gc_count": 0,
+      "configured_poll_interval_ms": 100,
+      "waits_finished": 0,
+      "before_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 115392,
+        "shm_bytes": 32768,
+        "total_bytes": 152256
+      },
+      "after_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 115392,
+        "shm_bytes": 32768,
+        "total_bytes": 152256
+      },
+      "file_growth_bytes": 0
+    },
+    {
       "repetition": 1,
       "waiters": 1,
       "requested_duration_ms": 1000,
-      "actual_wall_ms": 1000.810035,
+      "actual_wall_ms": 1000.48662,
       "process_cpu": {
         "available": true,
-        "user_ms": 3.864,
-        "system_ms": 1.905,
-        "total_ms": 5.769,
-        "percent_of_one_core": 0.5764330690389211
+        "user_ms": 0,
+        "system_ms": 5.25,
+        "total_ms": 5.25,
+        "percent_of_one_core": 0.5247446487590209
       },
-      "go_allocated_bytes": 47760,
-      "go_allocations": 1181,
+      "go_allocated_bytes": 42024,
+      "go_allocations": 1175,
       "gc_count": 0,
       "configured_poll_interval_ms": 100,
       "waits_finished": 1,
@@ -257,16 +257,16 @@
       "repetition": 2,
       "waiters": 1,
       "requested_duration_ms": 1000,
-      "actual_wall_ms": 1000.943264,
+      "actual_wall_ms": 1000.151973,
       "process_cpu": {
         "available": true,
-        "user_ms": 3.973,
-        "system_ms": 2.666,
-        "total_ms": 6.639,
-        "percent_of_one_core": 0.663274357176752
+        "user_ms": 3.488,
+        "system_ms": 1.744,
+        "total_ms": 5.232,
+        "percent_of_one_core": 0.5231204998082827
       },
-      "go_allocated_bytes": 52648,
-      "go_allocations": 1278,
+      "go_allocated_bytes": 42272,
+      "go_allocations": 1169,
       "gc_count": 0,
       "configured_poll_interval_ms": 100,
       "waits_finished": 1,
@@ -288,16 +288,16 @@
       "repetition": 3,
       "waiters": 1,
       "requested_duration_ms": 1000,
-      "actual_wall_ms": 1000.911972,
+      "actual_wall_ms": 1001.210446,
       "process_cpu": {
         "available": true,
-        "user_ms": 2.96,
-        "system_ms": 2.287,
-        "total_ms": 5.247,
-        "percent_of_one_core": 0.5242219242832675
+        "user_ms": 5.731,
+        "system_ms": 1.212,
+        "total_ms": 6.943,
+        "percent_of_one_core": 0.6934606033864733
       },
-      "go_allocated_bytes": 43368,
-      "go_allocations": 1177,
+      "go_allocated_bytes": 41672,
+      "go_allocations": 1174,
       "gc_count": 0,
       "configured_poll_interval_ms": 100,
       "waits_finished": 1,
@@ -319,15 +319,15 @@
       "repetition": 1,
       "waiters": 100,
       "requested_duration_ms": 1000,
-      "actual_wall_ms": 1002.16841,
+      "actual_wall_ms": 1000.598673,
       "process_cpu": {
         "available": true,
-        "user_ms": 12.245,
-        "system_ms": 0,
-        "total_ms": 12.245,
-        "percent_of_one_core": 1.2218505270985343
+        "user_ms": 9.699,
+        "system_ms": 3.658,
+        "total_ms": 13.357,
+        "percent_of_one_core": 1.3349008309148538
       },
-      "go_allocated_bytes": 505008,
+      "go_allocated_bytes": 505064,
       "go_allocations": 12077,
       "gc_count": 0,
       "configured_poll_interval_ms": 100,
@@ -350,16 +350,16 @@
       "repetition": 2,
       "waiters": 100,
       "requested_duration_ms": 1000,
-      "actual_wall_ms": 1000.407904,
+      "actual_wall_ms": 1000.672435,
       "process_cpu": {
         "available": true,
-        "user_ms": 8.668,
-        "system_ms": 8.383,
-        "total_ms": 17.051,
-        "percent_of_one_core": 1.7044047664781345
+        "user_ms": 11.881,
+        "system_ms": 2.683,
+        "total_ms": 14.564,
+        "percent_of_one_core": 1.455421323762156
       },
-      "go_allocated_bytes": 506712,
-      "go_allocations": 12085,
+      "go_allocated_bytes": 499320,
+      "go_allocations": 12069,
       "gc_count": 0,
       "configured_poll_interval_ms": 100,
       "waits_finished": 100,
@@ -381,16 +381,16 @@
       "repetition": 3,
       "waiters": 100,
       "requested_duration_ms": 1000,
-      "actual_wall_ms": 1001.429778,
+      "actual_wall_ms": 1001.244927,
       "process_cpu": {
         "available": true,
-        "user_ms": 13.194,
+        "user_ms": 12.863,
         "system_ms": 0,
-        "total_ms": 13.194,
-        "percent_of_one_core": 1.3175162442593154
+        "total_ms": 12.863,
+        "percent_of_one_core": 1.2847006414844986
       },
-      "go_allocated_bytes": 508048,
-      "go_allocations": 12097,
+      "go_allocated_bytes": 503296,
+      "go_allocations": 12169,
       "gc_count": 0,
       "configured_poll_interval_ms": 100,
       "waits_finished": 100,
