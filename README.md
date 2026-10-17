@@ -10,8 +10,8 @@ recover expired attempts without changing the operation ID or input.
 **Status: early execution prototype.** Submission, duplicate joining, leased claims,
 renewal, worker concurrency, retries, stored results, crash recovery, shared waiting,
 explicit operation cancellation, failed-operation retry and paginated event
-inspection exist. HTTP endpoints, a UI, retention, and multi-host coordination
-are not implemented. External effects require
+inspection, durable admission limits and bounded result pruning exist. HTTP
+endpoints, a UI and multi-host coordination are not implemented. External effects require
 handler-level idempotency; arbitrary exactly-once execution is not promised.
 
 ## End-to-end demonstration and measurements
@@ -68,10 +68,26 @@ its result or attempt history:
 ```
 
 Operation input and result JSON fields use base64 to preserve arbitrary bytes.
-Successful empty results may omit the result field; use the state to distinguish
-success. Retry policies are set at submission with `-max-attempts` (default 3) and
+Successful empty results may omit the result field; inspect state and
+result_pruned to distinguish an empty success from a deliberately removed result. Retry policies are set at submission with `-max-attempts` (default 3) and
 `-retry-delay` (default 1s). Go/JSON duration fields are integer nanoseconds; CLI
 duration flags accept strings such as `50ms`. Retrying does not change input.
+
+## Capacity and result retention
+
+```sh
+./taskfused set-limits -db demo.db -namespace demo -max-operations 10000 -max-active 100
+./taskfused usage -db demo.db -namespace demo
+./taskfused prune-results -db demo.db -namespace demo -before 2026-10-01T00:00:00Z -limit 50
+```
+
+Limits persist across processes; zero means unlimited. Total operations include all
+retained identities, while active means queued/running/retry_wait. Joins and applied
+retry-action replays remain readable at capacity. Pruning removes only succeeded
+result bytes, preserves exact inputs and all identity/action records, and marks
+result_pruned without allowing execution again. It does not release identity slots
+or guarantee smaller database files. Retention is explicit, with no background job.
+See [storage guarantees, upgrade procedure and limitations](docs/STORAGE.md).
 
 ## Embed a worker
 

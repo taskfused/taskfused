@@ -263,6 +263,11 @@ func (s *Store) finish(ctx context.Context, c Claim, result []byte, message stri
 	if _, err := tx.ExecContext(ctx, "UPDATE attempts SET state=?,finished_at=?,error=? WHERE id=?", attemptState, now.Format(time.RFC3339Nano), message, c.Attempt.ID); err != nil {
 		return err
 	}
+	if state == StateSucceeded {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO result_retention(operation_id,namespace,completed_at) VALUES(?,?,?)`, op.ID, op.Namespace, now.Format(retentionTimeFormat)); err != nil {
+			return err
+		}
+	}
 	if err := event(ctx, tx, op.ID, c.Attempt.ID, kind, now); err != nil {
 		return err
 	}

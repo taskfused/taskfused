@@ -89,6 +89,9 @@ func (s *Store) Retry(ctx context.Context, r RetryRequest) (RetryResult, error) 
 	if limit > MaxLifetimeAttempts {
 		return RetryResult{}, ErrRetryBudget
 	}
+	if err := checkAdmission(ctx, tx, r.Namespace, false); err != nil {
+		return RetryResult{}, err
+	}
 	now := s.now().UTC()
 	action.ExpectedAttempts = r.ExpectedAttempts
 	action.AdditionalAttempts = r.AdditionalAttempts

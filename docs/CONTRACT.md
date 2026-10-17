@@ -217,3 +217,23 @@ be fetched after an empty tail. Reads mutate no operation, attempt, event or act
 record. A per-operation sequence index bounds traversal to that operation's log.
 Retry events include durable grant metadata from their action records, preserving
 the original grant even when the effective limit later increases.
+
+
+## Admission and result retention
+
+Schema v5 persists namespace MaxOperations/MaxActive limits (zero unlimited).
+New identities check total and active counts in the admission write transaction;
+new retry grants check active counts. All identities remain counted forever, while
+active is queued/running/retry_wait. Joins and recorded action replays bypass
+admission without bypassing identity/policy checks. Lowering limits never cancels
+or prevents completion of admitted work. ErrCapacity writes no partial records.
+
+PruneResults removes succeeded result payloads only, in atomic batches up to 200,
+with an exclusive completion-time cutoff. It marks ResultPruned, retains succeeded
+state and appends one result_pruned event. An empty result can be marked too.
+Retained input, identity, ownership history and retry actions preserve exact
+submission equality and replay protection. Reads can observe payload or prune marker
+according to transaction order; pruning never initiates execution. It releases no
+identity slots, deletes no input/history/actions and performs no secure erasure or
+file shrinking. Usage reports consistent namespace logical counts and payload
+lengths, not a disk quota. See STORAGE.md for the complete operational contract.

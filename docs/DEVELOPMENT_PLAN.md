@@ -60,9 +60,10 @@ actions with durable idempotency, immutable original policy, monotonic ownership
 a lifetime claim cap, cycle-relative backoff and bounded live event pages.
 A runnable self-reexecuting Go harness and the first measured baseline are now
 complete; see docs/MEASUREMENTS.md. It checks real process-kill recovery and uses
-isolated waiter samples. Remaining: improve measured polling overhead, define
-capacity/payload retention without breaking identity/action idempotency, and
-broaden operational testing. Latency/storage observations are not release claims.
+isolated waiter samples. Shared polling is now measured and implemented. Schema v5 adds durable namespace
+admission limits, usage inspection and bounded succeeded-result pruning while
+retaining exact input/identity/action records. See docs/STORAGE.md. Remaining:
+broaden operational fault tests, then add the local HTTP surface and status page. Latency/storage observations are not release claims.
 
 Sessions 9–10: usable prototype. Add CLI inspection/retry, minimal HTTP endpoints,
 a local status page, two demos, and runnable documentation. The main demo submits

@@ -205,7 +205,11 @@ func TestProcessHelper(t *testing.T) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
-	result, err := s.Submit(context.Background(), request())
+	r := request()
+	if key := os.Getenv("TASKFUSED_TEST_KEY"); key != "" {
+		r.Key = key
+	}
+	result, err := s.Submit(context.Background(), r)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(3)

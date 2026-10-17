@@ -1,17 +1,17 @@
 # Resume TaskFused
 
-Updated: 2026-10-17. Completed milestone: runnable demo and measured baseline.
+Updated: 2026-10-17. Completed milestone: storage admission and result retention.
 
 ## Read first
 
-Read README.md, docs/CONTRACT.md, docs/DEVELOPMENT_PLAN.md and docs/MEASUREMENTS.md.
+Read README.md, docs/CONTRACT.md, docs/DEVELOPMENT_PLAN.md, docs/MEASUREMENTS.md and docs/STORAGE.md.
 Repository: https://github.com/taskfused/taskfused. Intended site: TaskFused.com;
 no website repository/hosting target has been provided. Work is authorized on this
 code repository. No release license is selected; NOTICE reserves rights.
 
 ## Current engine
 
-The core remains schema v4. It supports durable explicit-identity submissions,
+The core is schema v5. It supports durable explicit-identity submissions,
 duplicate joining, immutable input/original policy, local SQLite WAL/FULL, leased
 at-least-once attempts with increasing tokens, bounded retries and backoff, durable
 results/history, process-crash recovery, shared waiting and cooperative cancellation.
@@ -21,10 +21,9 @@ retry uses durable idempotent action keys and observed failure counts, grants up
 100 additional claims per action (1000 lifetime total), and does not reset ownership.
 Events are namespace-qualified and paginated. Read the contract before changes.
 
-CLI: submit/get/attempts/events/wait/cancel/retry. The example worker supports echo
-and a deterministic first-attempt failure flag. No HTTP/UI, retention, multi-host
-support or public release exists. Namespace is not authentication. Go/CGO and a C
-compiler are required. This milestone changes the demo/docs, not engine semantics.
+CLI: submit/get/attempts/events/wait/cancel/retry/usage/set-limits/prune-results. The example worker supports echo
+and a deterministic first-attempt failure flag. No HTTP/UI, multi-host support or public release exists. Namespace is not authentication. Go/CGO and a C
+compiler are required. Stop older processes before schema upgrades; mixed-version workers are unsupported.
 
 ## New runnable harness
 
@@ -96,15 +95,50 @@ modified=true); original report preserved. For 100 waiters, median CPU fell from
 samples. Single-waiter allocations increased slightly; write latency was mixed.
 See docs/MEASUREMENTS.md for limitations. These are short samples, not an SLA.
 
+## Storage milestone completed
+
+Schema v5 adds namespace_limits and a result_retention index plus ResultPruned.
+SetLimits replaces durable MaxOperations/MaxActive policy; zeros mean unlimited.
+New Submit checks both limits under its immediate write transaction. Retry checks
+active count only after replay/state/stale/budget validation. Joins and already
+applied retry actions still work at capacity. Counts include retained identities;
+active means queued/running/retry_wait. Lowering limits never interrupts work.
+Usage is a single SELECT snapshot of logical counts/payload bytes, not disk usage.
+
+PruneResults is explicit, succeeded-only, 1–200 records (zero defaults50), ordered
+by exclusive completion cutoff then ID. It removes result bytes, sets ResultPruned,
+appends result_pruned event and removes retention metadata in the same transaction.
+Inputs, identities, completion/state, attempt history and retry action keys remain.
+No auto-prune, input/history deletion, checkpoint, VACUUM or secure erasure. Pruning
+cannot free identity slots or permit reexecution. Empty successful results can be
+marked pruned with zero bytes removed. Get/Wait/joins/replays expose the marker.
+
+Migration backfills successful completion metadata in batches of200, using fixed
+UTC nanosecond strings to avoid variable RFC3339 fractional ordering issues. Bad
+successful completion timestamps cause full migration rollback. Old processes
+must stop before Open upgrades. Old binaries refuse the new schema.
+
+CLI adds usage/set-limits/prune-results; both policy flags are required to replace
+limits explicitly. Local vet/race tests/build passed. New tests cover competing
+Stores and a child process, persistent policy, capacity rejection rollback, replay
+at capacity, running/backoff states, namespace isolation, exact cutoff precision,
+empty results, identity/input retention, stale completion rejection, injected event
+failure rollback, bounded batches, restart,201-row migration and rollback, and CLI.
+The race suite includes the existing real-process crash/demo harness. Previous
+measurement artifacts are unchanged; no new throughput/file-shrink claim is made.
+
 ## Exact next step
 
-Add practical storage/capacity and payload-retention controls. Distinguish
-removing payload bytes from deleting identity/action tombstones: deleting those
-records can re-execute an old submission or retry action. Define retention guarantees
-before schema changes. History may be much larger for multi-attempt work than this
-one-attempt storage sample. HTTP/local UI follow these limits; remote use needs an
-explicit authentication/binding design. Multi-host and automatic graph fusion stay
-deferred. The original ten-session estimate is a planning budget, not a release claim.
+Add a small loopback-only HTTP interface and read-only local status page on top of
+these APIs. Define explicit request/response/error mapping, body/time limits and
+shutdown behavior first. Use no remote binding or authentication assumptions;
+namespace labels are not authorization. Include usage and clear pruned-result
+states; keep limit changes and pruning explicit administrative actions. Test HTTP
+submission/join/wait/cancel/retry and shutdown without weakening the core contract.
+Keep arbitrary shell jobs, workflow graphs, multi-host execution and automatic
+fusion deferred. Broaden operational disk/IO fault handling as justified; the
+logical admission controls are not filesystem quotas. A website/release still
+needs its explicit target/license. The ten-session estimate is a planning budget.
 
 ## Repository transport and session discipline
 

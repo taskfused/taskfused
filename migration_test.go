@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -275,7 +276,7 @@ func TestV4MigrationPreservesOriginalPolicyAndAllowsAuditedRetry(t *testing.T) {
 	if err := current.db.QueryRow("SELECT count(*) FROM pragma_foreign_key_check").Scan(&violations); err != nil || violations != 0 {
 		t.Fatalf("foreign keys: %d %v", violations, err)
 	}
-	if err := current.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 4 {
+	if err := current.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != schemaVersion {
 		t.Fatalf("version: %d %v", version, err)
 	}
 }
@@ -313,5 +314,95 @@ func TestV4MigrationFailureRollsBackAddedColumnsAndData(t *testing.T) {
 	}
 	if version != 3 || columns != 0 || events != 0 || state != StateFailed {
 		t.Fatalf("partial v4 migration: version=%d columns=%d event columns=%d state=%s", version, columns, events, state)
+	}
+}
+
+func TestV5MigrationBackfillsResultsInBatches(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "v4.db")
+	old := v3Store(t, path)
+	tx, err := old.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateV4(context.Background(), tx); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	stamp := "2026-10-17T18:00:00.000000001Z"
+	tx, err = old.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 201; i++ {
+		if _, err := tx.Exec(`INSERT INTO operations(id,namespace,handler,handler_version,operation_key,input,input_sha256,state,created_at,completed_at,result) VALUES(?, 'ns','echo','v1',?,X'00','legacy','succeeded',?,?,X'01')`, fmt.Sprint(i), fmt.Sprint(i), stamp, stamp); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	old.Close()
+	s := openTest(t, path)
+	if u := usageTest(t, s, "ns"); u.Operations != 201 || u.ResultBytes != 201 || u.PrunedResults != 0 {
+		t.Fatalf("migration lost payloads: %+v", u)
+	}
+	exact, _ := time.Parse(time.RFC3339Nano, stamp)
+	r := PruneRequest{Namespace: "ns", Before: exact, Limit: 200}
+	if p, err := s.PruneResults(context.Background(), r); err != nil || len(p.OperationIDs) != 0 {
+		t.Fatalf("migration lost precision: %+v %v", p, err)
+	}
+	r.Before = exact.Add(time.Nanosecond)
+	for _, want := range []int{200, 1, 0} {
+		p, err := s.PruneResults(context.Background(), r)
+		if err != nil || len(p.OperationIDs) != want {
+			t.Fatalf("backfill batch: got %d want %d: %v", len(p.OperationIDs), want, err)
+		}
+	}
+	var violations int
+	if err := s.db.QueryRow("SELECT count(*) FROM pragma_foreign_key_check").Scan(&violations); err != nil || violations != 0 {
+		t.Fatalf("foreign keys: %d %v", violations, err)
+	}
+}
+
+func TestV5MigrationMalformedTimestampRollsBack(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "rollback-v5.db")
+	old := v3Store(t, path)
+	tx, err := old.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateV4(context.Background(), tx); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	op := legacySubmit(t, old, request())
+	c := legacyClaim(t, old, op)
+	legacyComplete(t, old, c, []byte("keep"))
+	if _, err := old.db.Exec(`UPDATE operations SET completed_at='invalid' WHERE id=?`, op.ID); err != nil {
+		t.Fatal(err)
+	}
+	if s, err := Open(context.Background(), path); err == nil {
+		s.Close()
+		t.Fatal("invalid timestamp migrated")
+	}
+	var version, columns, tables int
+	for _, q := range []struct {
+		sql string
+		out *int
+	}{
+		{"PRAGMA user_version", &version},
+		{"SELECT count(*) FROM pragma_table_info('operations') WHERE name='result_pruned'", &columns},
+		{"SELECT count(*) FROM sqlite_master WHERE name IN ('result_retention','namespace_limits')", &tables},
+	} {
+		if err := old.db.QueryRow(q.sql).Scan(q.out); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if version != 4 || columns != 0 || tables != 0 {
+		t.Fatalf("partial migration version=%d columns=%d tables=%d", version, columns, tables)
 	}
 }

@@ -22,7 +22,7 @@ import (
 )
 
 const MaxInputBytes = 1024 * 1024
-const schemaVersion = 4
+const schemaVersion = 5
 
 var (
 	ErrInvalid           = errors.New("invalid request")
@@ -55,7 +55,8 @@ type Request struct {
 	RetryDelay  time.Duration `json:"retry_delay"`
 }
 
-// Operation is a durable record. Result is populated only on success.
+// Operation is a durable record. Result is populated only on success and may
+// later be removed by explicit pruning; ResultPruned distinguishes that outcome.
 // Input is encoded as base64 by encoding/json, preserving arbitrary bytes.
 type Operation struct {
 	ID           string        `json:"id"`
@@ -75,6 +76,7 @@ type Operation struct {
 	RetryCycleStart int        `json:"retry_cycle_start"`
 	RetryEligible   bool       `json:"retry_eligible"`
 	Result          []byte     `json:"result,omitempty"`
+	ResultPruned    bool       `json:"result_pruned"`
 	LastError       string     `json:"last_error,omitempty"`
 	CompletedAt     *time.Time `json:"completed_at,omitempty"`
 }
@@ -215,6 +217,11 @@ PRAGMA user_version = 1;`); err != nil {
 			return err
 		}
 	}
+	if version < 5 {
+		if err := migrateV5(ctx, tx); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
 }
 
@@ -233,7 +240,7 @@ func validate(r Request) error {
 }
 
 const identityColumns = "id, namespace, handler, handler_version, operation_key, input, input_sha256, state, created_at"
-const columns = identityColumns + ", attempt_count, max_attempts, retry_base_ns, result, last_error, completed_at, attempt_limit, retry_cycle_start"
+const columns = identityColumns + ", attempt_count, max_attempts, retry_base_ns, result, last_error, completed_at, attempt_limit, retry_cycle_start, result_pruned"
 
 type scanner interface{ Scan(...any) error }
 
@@ -241,7 +248,7 @@ func scanOperation(row scanner) (Operation, error) {
 	var op Operation
 	var created string
 	var completed sql.NullString
-	if err := row.Scan(&op.ID, &op.Namespace, &op.Handler, &op.Version, &op.Key, &op.Input, &op.InputSHA256, &op.State, &created, &op.AttemptCount, &op.MaxAttempts, &op.RetryDelay, &op.Result, &op.LastError, &completed, &op.AttemptLimit, &op.RetryCycleStart); err != nil {
+	if err := row.Scan(&op.ID, &op.Namespace, &op.Handler, &op.Version, &op.Key, &op.Input, &op.InputSHA256, &op.State, &created, &op.AttemptCount, &op.MaxAttempts, &op.RetryDelay, &op.Result, &op.LastError, &completed, &op.AttemptLimit, &op.RetryCycleStart, &op.ResultPruned); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Operation{}, ErrNotFound
 		}
@@ -303,6 +310,9 @@ func (s *Store) Submit(ctx context.Context, r Request) (Submission, error) {
 		return Submission{Operation: existing, Joined: true}, nil
 	}
 	if !errors.Is(err, ErrNotFound) {
+		return Submission{}, err
+	}
+	if err := checkAdmission(ctx, tx, r.Namespace, true); err != nil {
 		return Submission{}, err
 	}
 	var random [16]byte

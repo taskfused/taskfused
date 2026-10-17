@@ -193,3 +193,74 @@ func TestRetryAndPaginatedEventsCLI(t *testing.T) {
 		t.Fatal("retry accepted missing action identity")
 	}
 }
+
+func TestStorageCLI(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "storage.db")
+	ctx := context.Background()
+	invoke := func(args ...string) ([]byte, error) {
+		t.Helper()
+		var out, errOut bytes.Buffer
+		full := append([]string{args[0], "-db", path, "-namespace", "demo"}, args[1:]...)
+		err := run(ctx, full, &out, &errOut)
+		return out.Bytes(), err
+	}
+	if _, err := invoke("set-limits", "-max-operations", "1"); err == nil {
+		t.Fatal("omitted active limit accepted")
+	}
+	if _, err := invoke("set-limits", "-max-operations", "1", "-max-active", "1"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := invoke("submit", "-handler", "echo", "-version", "v1", "-key", "a", "-input", "hello", "-join")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sub taskfused.Submission
+	if err := json.Unmarshal(data, &sub); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := invoke("submit", "-handler", "echo", "-version", "v1", "-key", "b"); !errors.Is(err, taskfused.ErrCapacity) {
+		t.Fatalf("capacity: %v", err)
+	}
+	s, err := taskfused.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := s.Claim(ctx, taskfused.ClaimRequest{Namespace: "demo", Handler: "echo", Version: "v1", LeaseDuration: time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Complete(ctx, c, []byte("payload")); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	data, err = invoke("usage")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var u taskfused.Usage
+	if err := json.Unmarshal(data, &u); err != nil || u.ResultBytes != 7 || u.Active != 0 || u.Limits.MaxActive != 1 {
+		t.Fatalf("usage: %s %v", data, err)
+	}
+	cutoff := time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano)
+	data, err = invoke("prune-results", "-before", cutoff, "-limit", "1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var p taskfused.PruneResult
+	if err := json.Unmarshal(data, &p); err != nil || len(p.OperationIDs) != 1 || p.RemovedBytes != 7 {
+		t.Fatalf("prune: %s %v", data, err)
+	}
+	data, err = invoke("wait", "-id", sub.Operation.ID, "-timeout", "1s")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var op taskfused.Operation
+	if err := json.Unmarshal(data, &op); err != nil || !op.ResultPruned || op.State != taskfused.StateSucceeded {
+		t.Fatalf("wait: %s %v", data, err)
+	}
+	for _, args := range [][]string{{"prune-results"}, {"prune-results", "-before", "invalid"}, {"prune-results", "-before", cutoff, "-limit", "201"}, {"set-limits", "-max-operations", "-1", "-max-active", "0"}} {
+		if _, err := invoke(args...); err == nil {
+			t.Fatalf("accepted %v", args)
+		}
+	}
+}

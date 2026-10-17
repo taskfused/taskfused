@@ -25,10 +25,10 @@ func main() {
 
 func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: taskfused <submit|get|attempts|events|wait|cancel|retry> [flags]; use -h after a command")
+		return fmt.Errorf("usage: taskfused <submit|get|attempts|events|wait|cancel|retry|usage|set-limits|prune-results> [flags]; use -h after a command")
 	}
 	switch args[0] {
-	case "submit", "get", "attempts", "events", "wait", "cancel", "retry":
+	case "submit", "get", "attempts", "events", "wait", "cancel", "retry", "usage", "set-limits", "prune-results":
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
@@ -43,7 +43,9 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	var timeout time.Duration
 	var after int64
 	var limit, expectedAttempts, additionalAttempts int
-	var actionKey string
+	var actionKey, before string
+	var maxOperations, maxActive int64
+	var cutoff time.Time
 	if args[0] == "submit" {
 		fs.StringVar(&handler, "handler", "", "required handler name")
 		fs.StringVar(&version, "version", "", "required handler version")
@@ -52,7 +54,13 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		fs.IntVar(&maxAttempts, "max-attempts", 3, "initial execution attempt budget (1–100)")
 		fs.DurationVar(&retryDelay, "retry-delay", time.Second, "initial exponential retry delay (1ms–1h)")
 		fs.BoolVar(&join, "join", false, "join an existing operation with identical input")
-	} else {
+	} else if args[0] == "set-limits" {
+		fs.Int64Var(&maxOperations, "max-operations", 0, "maximum retained identities; zero unlimited (replaces prior policy)")
+		fs.Int64Var(&maxActive, "max-active", 0, "maximum queued/running/retry_wait operations; zero unlimited")
+	} else if args[0] == "prune-results" {
+		fs.StringVar(&before, "before", "", "required exclusive completion cutoff (RFC3339)")
+		fs.IntVar(&limit, "limit", 50, "maximum succeeded results to remove (1–200); irreversible")
+	} else if args[0] != "usage" {
 		fs.StringVar(&id, "id", "", "required operation ID")
 		if args[0] == "events" {
 			fs.Int64Var(&after, "after", 0, "exclusive event sequence cursor")
@@ -79,7 +87,7 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if *namespace == "" {
 		return fmt.Errorf("-namespace is required")
 	}
-	if args[0] != "submit" && id == "" {
+	if args[0] != "submit" && args[0] != "usage" && args[0] != "set-limits" && args[0] != "prune-results" && id == "" {
 		return fmt.Errorf("-id is required")
 	}
 	if args[0] == "submit" && (handler == "" || version == "" || key == "") {
@@ -91,6 +99,26 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if args[0] == "retry" && (actionKey == "" || expectedAttempts < 1) {
 		return fmt.Errorf("-action-key and positive -expected-attempts are required")
 	}
+	if args[0] == "set-limits" {
+		supplied := map[string]bool{}
+		fs.Visit(func(f *flag.Flag) { supplied[f.Name] = true })
+		if !supplied["max-operations"] || !supplied["max-active"] {
+			return fmt.Errorf("-max-operations and -max-active are both required; zero means unlimited")
+		}
+		if maxOperations < 0 || maxActive < 0 {
+			return fmt.Errorf("limits must be nonnegative")
+		}
+	}
+	if args[0] == "prune-results" {
+		var err error
+		cutoff, err = time.Parse(time.RFC3339Nano, before)
+		if err != nil || cutoff.IsZero() {
+			return fmt.Errorf("-before requires a nonzero RFC3339 completion cutoff")
+		}
+		if limit < 1 || limit > taskfused.MaxPruneBatch {
+			return fmt.Errorf("-limit must be 1–200")
+		}
+	}
 	store, err := taskfused.Open(ctx, *path)
 	if err != nil {
 		return err
@@ -98,6 +126,27 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	defer store.Close()
 	encoder := json.NewEncoder(out)
 	encoder.SetIndent("", "  ")
+	if args[0] == "set-limits" {
+		limits := taskfused.Limits{MaxOperations: maxOperations, MaxActive: maxActive}
+		if err := store.SetLimits(ctx, *namespace, limits); err != nil {
+			return err
+		}
+		return encoder.Encode(limits)
+	}
+	if args[0] == "usage" {
+		result, err := store.Usage(ctx, *namespace)
+		if err != nil {
+			return err
+		}
+		return encoder.Encode(result)
+	}
+	if args[0] == "prune-results" {
+		result, err := store.PruneResults(ctx, taskfused.PruneRequest{Namespace: *namespace, Before: cutoff, Limit: limit})
+		if err != nil {
+			return err
+		}
+		return encoder.Encode(result)
+	}
 	if args[0] == "submit" {
 		result, err := store.Submit(ctx, taskfused.Request{Namespace: *namespace, Handler: handler, Version: version, Key: key, Input: []byte(input), JoinExisting: join, MaxAttempts: maxAttempts, RetryDelay: retryDelay})
 		if err != nil {

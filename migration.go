@@ -4,6 +4,8 @@ package taskfused
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"time"
 )
 
 // Rebuild the constrained v1 tables inside the caller's write transaction. Copy
@@ -144,5 +146,56 @@ CREATE TABLE retry_actions (
 );
 CREATE INDEX events_operation_sequence ON events(operation_id,sequence);
 PRAGMA user_version = 4;`)
+	return err
+}
+
+// Version 5 adds durable admission policy and explicit result pruning. Retention
+// timestamps use fixed-width UTC nanoseconds for exact indexed cutoff comparison.
+func migrateV5(ctx context.Context, tx *sql.Tx) error {
+	if _, err := tx.ExecContext(ctx, `
+ ALTER TABLE operations ADD COLUMN result_pruned INTEGER NOT NULL DEFAULT 0 CHECK(result_pruned IN (0,1));
+ CREATE TABLE namespace_limits(namespace TEXT PRIMARY KEY,max_operations INTEGER NOT NULL CHECK(max_operations>=0),max_active INTEGER NOT NULL CHECK(max_active>=0));
+ CREATE TABLE result_retention(operation_id TEXT PRIMARY KEY REFERENCES operations(id),namespace TEXT NOT NULL,completed_at TEXT NOT NULL);
+ CREATE INDEX result_retention_cutoff ON result_retention(namespace,completed_at,operation_id);
+ `); err != nil {
+		return err
+	}
+	// Read only small metadata batches; never materialize stored payloads in migration.
+	after := ""
+	for {
+		rows, err := tx.QueryContext(ctx, `SELECT id,namespace,completed_at FROM operations WHERE state='succeeded' AND id>? ORDER BY id LIMIT 200`, after)
+		if err != nil {
+			return err
+		}
+		type record struct{ id, namespace, completed string }
+		batch := []record{}
+		for rows.Next() {
+			var r record
+			if err := rows.Scan(&r.id, &r.namespace, &r.completed); err != nil {
+				rows.Close()
+				return err
+			}
+			batch = append(batch, r)
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return err
+		}
+		if len(batch) == 0 {
+			break
+		}
+		for _, r := range batch {
+			completed, err := time.Parse(time.RFC3339Nano, r.completed)
+			if err != nil {
+				return fmt.Errorf("migrate result completion: %w", err)
+			}
+			if _, err := tx.ExecContext(ctx, `INSERT INTO result_retention(operation_id,namespace,completed_at) VALUES(?,?,?)`, r.id, r.namespace, completed.UTC().Format(retentionTimeFormat)); err != nil {
+				return err
+			}
+		}
+		after = batch[len(batch)-1].id
+	}
+	_, err := tx.ExecContext(ctx, `PRAGMA user_version=5;`)
 	return err
 }
