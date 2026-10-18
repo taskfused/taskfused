@@ -39,7 +39,9 @@ In a cloud session, fetch modules with `GOPROXY=direct`.
 TaskFused.com is in `photozeitgeist/taskfused.com` (published October 2026): the
 Hugo Launch template copied unchanged, with content and config values only. Pages:
 about, contact, quick start, download, reference. Posts: the launch, request
-coalescing, how it was tested, the name. Images are drawn into static/images.
+coalescing, how it was tested, the name, and six use cases (report exports, AI
+calls, client retries, cache stampedes, renders through a deploy, payments).
+Images are drawn into static/images.
 Every number comes from `test/results/`; when a recording changes a number, update
 the site too.
 
