@@ -34,14 +34,15 @@ number on the site and in the README comes from those files; record again after
 any change that could move them. It needs Go, a C compiler, Python 3 and musl-gcc.
 In a cloud session, fetch modules with `GOPROXY=direct`.
 
+## Site
+
+TaskFused.com is in `photozeitgeist/taskfused.com` (published October 2026): the
+Hugo Launch template copied unchanged, with content and config values only. Pages:
+about, contact, quick start, download, reference. Posts: the launch, request
+coalescing, how it was tested, the name. Images are drawn into static/images.
+Every number comes from `test/results/`; when a recording changes a number, update
+the site too.
+
 ## Next
 
-Round 2, approved: the TaskFused.com site, in `photozeitgeist/taskfused.com`, once
-the owner has created that repo and given push access. It follows the low
-maintenance workflow: the Hugo Launch template copied unchanged, content and
-config values only; pages for about, contact (info@taskfused.com), quick start,
-download and reference; posts for the launch, a plain-language explainer of the
-category, how it was tested and the name; images drawn into static/images; every
-number from `test/results/`.
-
-After that, nothing is decided.
+Nothing is decided. Agree it with the owner before it goes here.
