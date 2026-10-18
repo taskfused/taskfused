@@ -344,7 +344,7 @@ Windows. Raising `Version` in
 `taskfused.go` releases it: once the tests pass, the release workflow builds the
 binaries for every system, smoke-tests them with `scripts/smoke.py`, then tags the
 commit and publishes the release ([RELEASING.md](RELEASING.md)). See
-[the development plan](docs/DEVELOPMENT_PLAN.md), [behavioral contract](docs/CONTRACT.md)
+[how 0.1 was built](docs/HISTORY.md), [behavioral contract](docs/CONTRACT.md)
 and [CLAUDE.md](CLAUDE.md) for where work picks up next.
 
 ## License
