@@ -1,4 +1,6 @@
-// Copyright 2026 TaskFused. All rights reserved.
+// Copyright TaskFused.com 2026
+// SPDX-License-Identifier: Apache-2.0
+
 // Package buildinfo reports executable provenance without opening a database.
 package buildinfo
 
@@ -9,10 +11,8 @@ import (
 	"github.com/taskfused/taskfused"
 )
 
-// Candidate builds set these through Go linker -X flags. Ordinary builds retain
-// development status and use available Go VCS metadata for their revision.
-var Version = "development"
-var Revision string
+// Info's version is taskfused.Version. Its revision and modified flag come
+// from the Go VCS metadata stamped into builds made from a git checkout.
 
 type Record struct {
 	Version  string `json:"version"`
@@ -26,7 +26,7 @@ type Record struct {
 }
 
 func Info() Record {
-	result := Record{Version: Version, Revision: Revision, Go: runtime.Version(), OS: runtime.GOOS, Arch: runtime.GOARCH, Schema: taskfused.SchemaVersion}
+	result := Record{Version: taskfused.Version, Go: runtime.Version(), OS: runtime.GOOS, Arch: runtime.GOARCH, Schema: taskfused.SchemaVersion}
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, setting := range info.Settings {
 			switch setting.Key {

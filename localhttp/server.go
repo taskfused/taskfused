@@ -1,4 +1,6 @@
-// Copyright 2026 TaskFused. All rights reserved.
+// Copyright TaskFused.com 2026
+// SPDX-License-Identifier: Apache-2.0
+
 // Package localhttp exposes TaskFused on one numeric loopback address. It is not
 // an authenticated remote service. Local users/processes can access all namespaces.
 package localhttp

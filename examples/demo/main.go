@@ -1,4 +1,6 @@
-// Copyright 2026 TaskFused. All rights reserved.
+// Copyright TaskFused.com 2026
+// SPDX-License-Identifier: Apache-2.0
+
 // The demo re-executes this binary for real worker crashes and isolated samples.
 package main
 

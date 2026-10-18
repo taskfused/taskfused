@@ -7,15 +7,38 @@ operation identities, runs registered Go handlers with leases and bounded retrie
 and stores results and attempt history in local SQLite. Restarted workers can
 recover expired attempts without changing the operation ID or input.
 
-**Status: local evaluation prototype.** Submission, duplicate joining, leased claims,
+**Status: v0.1.0, an early single-host release.** Submission, duplicate joining, leased claims,
 renewal, worker concurrency, retries, stored results, crash recovery, shared waiting,
 explicit operation cancellation, failed-operation retry and paginated event
 inspection, durable admission limits and bounded result pruning exist. HTTP
 endpoints and a read-only status page are available on loopback. Multi-host
 coordination is not implemented. External effects require
 handler-level idempotency; arbitrary exactly-once execution is not promised.
-See [the readiness review](docs/READINESS.md) for implemented coverage and the
-remaining public-release decisions and validation limits.
+TaskFused is open source under the Apache License 2.0. See
+[the readiness review](docs/READINESS.md) for implemented coverage and validation
+limits.
+
+## Download
+
+Ready-built binaries for Linux (x86-64 and ARM64, static), macOS (Apple silicon
+and Intel) and Windows (x86-64) are on the
+[releases page](https://github.com/taskfused/taskfused/releases/latest). Each
+archive holds three commands: `taskfused` (the CLI and loopback HTTP server),
+`taskfused-worker` (the example worker) and `taskfused-demo` (the self-checking
+demo). The links below always fetch the latest release:
+
+| System | Archive |
+|---|---|
+| Linux, x86-64 | [taskfused_linux_amd64.tar.gz](https://github.com/taskfused/taskfused/releases/latest/download/taskfused_linux_amd64.tar.gz) |
+| Linux, ARM64 | [taskfused_linux_arm64.tar.gz](https://github.com/taskfused/taskfused/releases/latest/download/taskfused_linux_arm64.tar.gz) |
+| macOS, Apple silicon | [taskfused_darwin_arm64.tar.gz](https://github.com/taskfused/taskfused/releases/latest/download/taskfused_darwin_arm64.tar.gz) |
+| macOS, Intel | [taskfused_darwin_amd64.tar.gz](https://github.com/taskfused/taskfused/releases/latest/download/taskfused_darwin_amd64.tar.gz) |
+| Windows, x86-64 | [taskfused_windows_amd64.zip](https://github.com/taskfused/taskfused/releases/latest/download/taskfused_windows_amd64.zip) |
+
+SHA256SUMS on the release page lists the checksums. Every archive was smoke-tested
+on its own kind of machine before the release went out (the Intel macOS build is
+checked for architecture only). `taskfused version` prints the version and the
+commit it was built from. To use the Go package: `go get github.com/taskfused/taskfused@latest`.
 
 ## End-to-end demonstration and measurements
 
@@ -54,22 +77,11 @@ retry replay and pruned-result inspection over HTTP. Retention administration an
 stale worker result rejection use their Go APIs. No external service is needed.
 See [HTTP demo procedure and captured IPv4/IPv6 reports](docs/HTTP_DEMO.md).
 
-## Build a local candidate
-
-```sh
-python3 scripts/candidate.py build --output /tmp/taskfused-candidate --rebuild
-```
-
-Run from a clean committed checkout on native Linux amd64 with Go 1.26.x, Python
-3.10+ and a C compiler. This creates and verifies a local archive containing the
-CLI, example worker and demo; it does not publish, tag or change NOTICE. Version
-metadata is available with taskfused version and the example binaries' -version.
-See [candidate packaging](docs/PACKAGING.md), [compatibility scope](docs/COMPATIBILITY.md)
-and the [packaged quickstart](docs/CANDIDATE_QUICKSTART.md).
-
 ## Try it
 
-Requires Go 1.24 or later, CGO enabled, and a C compiler for the SQLite driver.
+With a release archive, use its `taskfused` and `taskfused-worker` in place of
+the build and `go run` commands below. To build from source you need Go 1.24 or
+later, CGO enabled, and a C compiler for the SQLite driver.
 
 ```sh
 go build ./cmd/taskfused
@@ -313,9 +325,10 @@ exceed realistic scheduling and SQLite write delays; 100ms is an API minimum,
 not an operational recommendation. Failed handler attempts back off exponentially;
 crashed attempts consume budget and are reclaimed after expiration.
 
-Database versions 1–3 are upgraded transactionally to version 4 on open. IDs,
+Database schema versions 1–4 are upgraded transactionally to version 5 on open. IDs,
 inputs, existing events, active attempts, results and original retry/lease policy
-are preserved. Newer schema versions are rejected.
+are preserved. Newer schema versions are rejected. Stop older processes before an
+upgrade; mixed-version workers are not supported.
 
 ## Development
 
@@ -323,13 +336,20 @@ are preserved. Newer schema versions are rejected.
 go test -race -count=1 ./...
 go vet ./...
 go build ./...
+sh scripts/record-tests.sh   # every test and both demos, written to test/results/
 ```
 
-See [the development plan](docs/DEVELOPMENT_PLAN.md), [behavioral contract](docs/CONTRACT.md),
-and [resume instructions](RESUME.md). TaskFused.com is the intended project domain;
-this repository does not publish a website.
+Every push to `main` runs the tests on Linux and macOS and the smoke check on
+Windows. Raising `Version` in
+`taskfused.go` releases it: once the tests pass, the release workflow builds the
+binaries for every system, smoke-tests them with `scripts/smoke.py`, then tags the
+commit and publishes the release ([RELEASING.md](RELEASING.md)). See
+[the development plan](docs/DEVELOPMENT_PLAN.md), [behavioral contract](docs/CONTRACT.md)
+and [CLAUDE.md](CLAUDE.md) for where work picks up next.
 
-## Rights
+## License
 
-Copyright 2026 TaskFused. All rights reserved. See [NOTICE](NOTICE). No TaskFused
-release license has been selected. Dependencies retain their respective licenses.
+TaskFused is licensed under the [Apache License, Version 2.0](LICENSE). Copyright
+TaskFused.com 2026; see [NOTICE](NOTICE). The binaries also contain go-sqlite3,
+SQLite, the Go runtime and, on Linux, musl libc; their licenses are in
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).

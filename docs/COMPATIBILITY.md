@@ -1,34 +1,50 @@
-# Candidate compatibility scope
+# Compatibility
 
-The current packaging target is native Linux amd64, GOAMD64=v1, built with CGO and
-a stable Go 1.26.x toolchain. Go 1.26.1/Linux amd64 is the observed local validation
-environment. CI runs Ubuntu with Go 1.26.x and builds/verifies the native candidate.
-A C compiler is needed to build; packaged executables do not need Go or a compiler
-to run, but require a compatible host C runtime. MANIFEST.json records the build
-host/runtime/compiler. No minimum glibc baseline, static-link guarantee or arbitrary
-Linux-distribution portability is established by these tests.
+## Systems
 
-go.mod still declares Go 1.24. That source minimum has not been independently
-qualified by the candidate gate. macOS/Windows/arm64 and other toolchains can be
-separate future targets after actual builds/tests; no binaries for them are promised.
+Each release ships binaries for Linux x86-64 and ARM64 (statically linked against
+musl libc, so they need no particular glibc), macOS Apple silicon and Intel, and
+Windows x86-64. The release workflow builds them with the Go 1.26.x toolchain and
+CGO, and runs `scripts/smoke.py` on each one on its own kind of machine: both
+Linux architectures, Apple silicon and Windows. The macOS Intel build is checked
+for its architecture but not run, because the runners are Apple silicon. The
+smoke check covers submission and joining, a real worker run, waiting, limits and
+pruning, the loopback HTTP API and status page, a clean exit on interrupt, and the
+HTTP recovery demo, which kills a real worker process and recovers its lease.
 
-Candidate IDs bind behavior to one Git commit. They are not public semver releases.
-Library APIs and CLI/HTTP wire behavior are documented for that commit. Before a
-public v0 tag, choose and document a version policy; no long-term API compatibility
-promise is implied by a private candidate. HTTP input/result bytes use base64,
-retry_delay uses integer nanoseconds and namespace is not authentication.
+The test workflow runs the full suite on Linux and macOS, the race detector on
+Linux, and the smoke check on Windows binaries on a Windows runner, on every push
+and pull request. Windows runs the smoke check, not the full test suite.
+The macOS and Windows binaries link to the operating system's own C runtime and are
+not signed; macOS may ask you to allow them the first time.
 
-SchemaVersion and executable metadata currently report SQLite schema v5. Open
-migrates supported older TaskFused schemas transactionally and refuses newer or
-unrecognized databases. Stop old processes before upgrade; do not run mixed-schema
-workers with already-open connections. Older binaries cannot open schema v5.
-Use SQLite-aware backups for valuable data; there is no automatic downgrade or
-backup/restore service. Candidate verification explicitly gates on schema v5 and
-must be reviewed when a future schema changes.
+Building from source needs Go 1.24 or later (as go.mod declares), CGO and a C
+compiler. CI builds with Go 1.26.x; the 1.24 minimum is declared, not separately
+tested.
 
-Deploy one host with local SQLite WAL/FULL, registered Go handlers, explicit
-identities and destination-level idempotency for external effects. Only literal
-loopback HTTP binding is supported; no proxy/tunnel/remote-auth deployment is
-qualified. Storage quotas, retention and error boundaries remain as documented in
-STORAGE.md, HTTP.md and FAULTS.md. Physical power-loss/VFS durability and browser
-visual rendering are not newly qualified by successful packaging.
+## Versions
+
+Releases are tagged vX.Y.Z from `Version` in `taskfused.go`, and the Go module is
+versioned by the same tags. Before 1.0, a minor version (0.X.0) may change the Go
+API, the CLI or the HTTP wire format; patch versions (0.X.Y) don't. Release notes
+and the commit history say what changed. HTTP input and result bytes use base64,
+`retry_delay` uses integer nanoseconds, and a namespace is not authentication.
+
+## Database schema
+
+`SchemaVersion` and every binary's `version` output report SQLite schema v5. Open
+migrates older TaskFused schemas (v1 to v4) transactionally and refuses newer or
+unrecognized databases. Stop old processes before an upgrade; don't run workers of
+different versions on one database. Older binaries can't open a schema v5 database,
+and there is no automatic downgrade, so keep a SQLite-aware backup of valuable data
+before upgrading.
+
+## Deployment scope
+
+One host, with local SQLite in WAL mode and FULL synchronization, registered Go
+handlers, explicit identities and destination-level idempotency for external
+effects. Only literal loopback HTTP binding is supported; no proxy, tunnel or
+remote-authentication deployment is qualified. Storage quotas, retention and error
+boundaries are as documented in STORAGE.md, HTTP.md and FAULTS.md. Physical
+power-loss and VFS-level durability, and browser visual rendering of the status
+page, have not been qualified.

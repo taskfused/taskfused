@@ -1,0 +1,112 @@
+{
+  "generated_at": "2026-10-17T20:44:20.712015444Z",
+  "go": "go1.24.7",
+  "os": "linux",
+  "arch": "amd64",
+  "build_settings": {
+    "CGO_ENABLED": "1",
+    "GOAMD64": "v1",
+    "vcs.modified": "true",
+    "vcs.revision": "35c7363b0dc4e194f8378f3273435ac798029194"
+  },
+  "listener_family": "IPv4",
+  "functional_over_http": {
+    "shared": {
+      "requests": 100,
+      "new_operations": 1,
+      "joined": 99,
+      "successful_waiters": 99,
+      "timed_out_waiters": 1,
+      "attempts": 1,
+      "wait_elapsed_including_demo_delay": {
+        "samples": 99,
+        "min_ms": 292.355581,
+        "p50_ms": 302.041234,
+        "p95_ms": 306.135664,
+        "p99_ms": 306.499138,
+        "max_ms": 306.499138,
+        "mean_ms": 301.25266924242425
+      }
+    },
+    "crash": {
+      "kill_exit": "signal: killed",
+      "attempts": 2,
+      "old_token": 1,
+      "new_token": 2,
+      "same_operation": true,
+      "stale_commit_rejected": true,
+      "kill_to_observed_success_ms": 1101.773143
+    },
+    "cancellation": {
+      "state": "canceled",
+      "observed_by_handler": true,
+      "cancel_to_handler_observation_ms": 334.503907,
+      "survivor_succeeded": true
+    },
+    "retry": {
+      "applied_actions": 1,
+      "replays": 1,
+      "attempts": 2,
+      "original_max_attempts": 1,
+      "attempt_limit": 2,
+      "events": 6,
+      "event_kinds": [
+        "submitted",
+        "claimed",
+        "failed",
+        "retry_requested",
+        "claimed",
+        "succeeded"
+      ]
+    }
+  },
+  "http_504_preserves_pending_work": true,
+  "retention": {
+    "before": {
+      "limits": {
+        "max_operations": 0,
+        "max_active": 0
+      },
+      "operations": 6,
+      "active": 0,
+      "input_bytes": 78,
+      "result_bytes": 52,
+      "pruned_results": 0,
+      "attempts": 7,
+      "events": 22,
+      "retry_actions": 1
+    },
+    "after": {
+      "limits": {
+        "max_operations": 0,
+        "max_active": 0
+      },
+      "operations": 6,
+      "active": 0,
+      "input_bytes": 78,
+      "result_bytes": 0,
+      "pruned_results": 4,
+      "attempts": 7,
+      "events": 26,
+      "retry_actions": 1
+    },
+    "pruned_results": 4,
+    "removed_result_bytes": 52,
+    "pruned_markers_observed_over_http": 4,
+    "retry_replay_preserved": true
+  },
+  "observed_api_response_statuses": {
+    "200": 223,
+    "201": 6,
+    "504": 1
+  },
+  "shutdown_completed": true,
+  "notes": [
+    "Correctness demo, not a throughput benchmark or recovery SLA. Private temporary SQLite files are removed after shutdown.",
+    "The HTTP server runs on an ephemeral numeric loopback listener in this process; registered workers are real child processes of the same executable.",
+    "Process.Kill follows a committed-claim acknowledgment and bypasses graceful worker/store cleanup. Recovery includes the one-second lease and polling.",
+    "Shared requests and outcome inspection use HTTP. Stale worker completion and explicit result pruning use the Go API; neither administrative/worker action has an HTTP route.",
+    "One shared caller uses a client context deadline; a separate queued operation verifies an actual HTTP504 server wait timeout without canceling work.",
+    "Only demo built-in Go handlers execute. No arbitrary submitted commands, remote access or release license is introduced."
+  ]
+}

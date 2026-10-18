@@ -1,4 +1,5 @@
-// Copyright 2026 TaskFused. All rights reserved.
+// Copyright TaskFused.com 2026
+// SPDX-License-Identifier: Apache-2.0
 
 // Package taskfused provides durable shared operations with leased, at-least-once
 // execution on one host. External side effects require handler-level idempotency.
@@ -20,6 +21,11 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 )
+
+// Version is this release of TaskFused. Raising it on main releases it: once
+// the test workflow passes, the release workflow builds, checks, tags and
+// publishes vX.Y.Z (see RELEASING.md).
+const Version = "0.1.0"
 
 const MaxInputBytes = 1024 * 1024
 
@@ -104,6 +110,18 @@ type Store struct {
 	now       func() time.Time // Fixed on open; replace only before use in deterministic tests.
 }
 
+// uriPath turns an absolute OS path into a SQLite file URI path. A Windows path
+// such as C:\data\x.db becomes /C:/data/x.db, so the URI is file:///C:/... with an
+// empty authority; file://C:/... would put the drive letter in the authority,
+// which SQLite rejects.
+func uriPath(absolute string) string {
+	p := filepath.ToSlash(absolute)
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	return p
+}
+
 // Open creates or opens a database, verifies its schema and runs initial setup.
 // It uses WAL mode and FULL synchronization. WAL and SHM sidecars may exist while
 // open; use SQLite-aware backups rather than copying a live main database file.
@@ -115,7 +133,7 @@ func Open(ctx context.Context, path string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("database path: %w", err)
 	}
-	u := url.URL{Scheme: "file", Path: filepath.ToSlash(absolute)}
+	u := url.URL{Scheme: "file", Path: uriPath(absolute)}
 	q := u.Query()
 	q.Set("_busy_timeout", "5000")
 	q.Set("_journal_mode", "WAL")

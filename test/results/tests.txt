@@ -1,0 +1,312 @@
+# Every test, verbose
+# recorded 2026-10-17 20:43 UTC at 35c7363, TaskFused 0.1.0, go1.24.7 linux/amd64
+# Linux 6.18.44-fc-v139, Intel(R) Xeon(R) Processor @ 2.10GHz, 2 CPUs
+# command: go test -count=1 -v ./...
+
+=== RUN   TestCancelQueuedAndRetryWaitIsIdempotent
+=== RUN   TestCancelQueuedAndRetryWaitIsIdempotent/queued
+=== RUN   TestCancelQueuedAndRetryWaitIsIdempotent/retry_wait
+--- PASS: TestCancelQueuedAndRetryWaitIsIdempotent (0.03s)
+    --- PASS: TestCancelQueuedAndRetryWaitIsIdempotent/queued (0.02s)
+    --- PASS: TestCancelQueuedAndRetryWaitIsIdempotent/retry_wait (0.02s)
+=== RUN   TestCancelRunningRevokesOwnershipImmediately
+--- PASS: TestCancelRunningRevokesOwnershipImmediately (0.02s)
+=== RUN   TestCancelPreservesEarlierTerminalSuccessOrFailure
+=== RUN   TestCancelPreservesEarlierTerminalSuccessOrFailure/succeeded
+=== RUN   TestCancelPreservesEarlierTerminalSuccessOrFailure/failed
+--- PASS: TestCancelPreservesEarlierTerminalSuccessOrFailure (0.04s)
+    --- PASS: TestCancelPreservesEarlierTerminalSuccessOrFailure/succeeded (0.03s)
+    --- PASS: TestCancelPreservesEarlierTerminalSuccessOrFailure/failed (0.01s)
+=== RUN   TestConcurrentCancelAndCompleteChooseOneTerminalOutcome
+--- PASS: TestConcurrentCancelAndCompleteChooseOneTerminalOutcome (0.05s)
+=== RUN   TestCancelEventFailureRollsBackOperationAndAttempt
+--- PASS: TestCancelEventFailureRollsBackOperationAndAttempt (0.01s)
+=== RUN   TestCanceledHandlerDoesNotStopSiblingWork
+--- PASS: TestCanceledHandlerDoesNotStopSiblingWork (0.32s)
+=== RUN   TestCancellationDoesNotClaimUncooperativeHandlerStopped
+--- PASS: TestCancellationDoesNotClaimUncooperativeHandlerStopped (0.02s)
+=== RUN   TestCancelLookupAndContextIsolation
+--- PASS: TestCancelLookupAndContextIsolation (0.01s)
+=== RUN   TestCancelRacingRetrySchedulingCannotLeaveRunnableWork
+--- PASS: TestCancelRacingRetrySchedulingCannotLeaveRunnableWork (0.02s)
+=== RUN   TestEventPaginationHasNoDuplicatesGapsOrCrossOperationLeak
+--- PASS: TestEventPaginationHasNoDuplicatesGapsOrCrossOperationLeak (0.01s)
+=== RUN   TestEventsPageBoundAndLiveTail
+--- PASS: TestEventsPageBoundAndLiveTail (0.02s)
+=== RUN   TestEventsValidationAndDefaultLimit
+--- PASS: TestEventsValidationAndDefaultLimit (0.02s)
+=== RUN   TestLeaseExpiryInvalidatesAllMutationsBeforeAndAfterReclaim
+--- PASS: TestLeaseExpiryInvalidatesAllMutationsBeforeAndAfterReclaim (0.02s)
+=== RUN   TestRenewNeverShortensLease
+--- PASS: TestRenewNeverShortensLease (0.01s)
+=== RUN   TestRetriesBackoffAndBudget
+--- PASS: TestRetriesBackoffAndBudget (0.02s)
+=== RUN   TestCrashedAttemptExhaustsBudget
+--- PASS: TestCrashedAttemptExhaustsBudget (0.01s)
+=== RUN   TestConcurrentClaimsHaveOneOwner
+--- PASS: TestConcurrentClaimsHaveOneOwner (0.01s)
+=== RUN   TestClaimAndCompletionRollbackOnEventFailure
+--- PASS: TestClaimAndCompletionRollbackOnEventFailure (0.02s)
+=== RUN   TestMigrationPreservesV1OperationsAndEvents
+--- PASS: TestMigrationPreservesV1OperationsAndEvents (0.02s)
+=== RUN   TestWorkerCrashRecoveryAcrossProcessExit
+--- PASS: TestWorkerCrashRecoveryAcrossProcessExit (0.13s)
+=== RUN   TestExecutionValidationAndNamespaceIsolation
+--- PASS: TestExecutionValidationAndNamespaceIsolation (0.01s)
+=== RUN   TestConcurrentSuccessAndFailureHaveOneCommit
+--- PASS: TestConcurrentSuccessAndFailureHaveOneCommit (0.01s)
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/statement/submit
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/statement/claim
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/statement/reclaim
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/statement/exhaustion
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/statement/renew
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/statement/complete
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/statement/fail
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/statement/retry_schedule
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/statement/cancel
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/statement/retry
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/statement/prune
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/statement/limits_insert
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/statement/limits_update
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/commit/submit
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/commit/claim
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/commit/reclaim
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/commit/exhaustion
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/commit/renew
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/commit/complete
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/commit/fail
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/commit/retry_schedule
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/commit/cancel
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/commit/retry
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/commit/prune
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/commit/limits_insert
+=== RUN   TestMutationRollbackAtStatementAndCommitBoundaries/commit/limits_update
+--- PASS: TestMutationRollbackAtStatementAndCommitBoundaries (0.29s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/statement/submit (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/statement/claim (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/statement/reclaim (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/statement/exhaustion (0.02s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/statement/renew (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/statement/complete (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/statement/fail (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/statement/retry_schedule (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/statement/cancel (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/statement/retry (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/statement/prune (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/statement/limits_insert (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/statement/limits_update (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/commit/submit (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/commit/claim (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/commit/reclaim (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/commit/exhaustion (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/commit/renew (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/commit/complete (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/commit/fail (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/commit/retry_schedule (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/commit/cancel (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/commit/retry (0.02s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/commit/prune (0.02s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/commit/limits_insert (0.01s)
+    --- PASS: TestMutationRollbackAtStatementAndCommitBoundaries/commit/limits_update (0.01s)
+=== RUN   TestSQLiteFullRollsBackSubmissionAndResult
+=== RUN   TestSQLiteFullRollsBackSubmissionAndResult/submit
+=== RUN   TestSQLiteFullRollsBackSubmissionAndResult/complete
+--- PASS: TestSQLiteFullRollsBackSubmissionAndResult (0.06s)
+    --- PASS: TestSQLiteFullRollsBackSubmissionAndResult/submit (0.03s)
+    --- PASS: TestSQLiteFullRollsBackSubmissionAndResult/complete (0.03s)
+=== RUN   TestReadOnlySQLiteRejectsWritesWithoutLosingReadableWork
+--- PASS: TestReadOnlySQLiteRejectsWritesWithoutLosingReadableWork (0.01s)
+=== RUN   TestWriterContentionReturnsBusyAndCanBeRetried
+--- PASS: TestWriterContentionReturnsBusyAndCanBeRetried (0.04s)
+=== RUN   TestResultCommitFailureCanRepeatEffectsUnlessHandlerDeduplicates
+=== RUN   TestResultCommitFailureCanRepeatEffectsUnlessHandlerDeduplicates/false
+=== RUN   TestResultCommitFailureCanRepeatEffectsUnlessHandlerDeduplicates/true
+--- PASS: TestResultCommitFailureCanRepeatEffectsUnlessHandlerDeduplicates (0.02s)
+    --- PASS: TestResultCommitFailureCanRepeatEffectsUnlessHandlerDeduplicates/false (0.01s)
+    --- PASS: TestResultCommitFailureCanRepeatEffectsUnlessHandlerDeduplicates/true (0.01s)
+=== RUN   TestDeferredPruneCommitFailureRestoresWholeBatch
+--- PASS: TestDeferredPruneCommitFailureRestoresWholeBatch (0.01s)
+=== RUN   TestRenewalStorageFailureCancelsHandlerAndAllowsExpiryRecovery
+--- PASS: TestRenewalStorageFailureCancelsHandlerAndAllowsExpiryRecovery (0.05s)
+=== RUN   TestV3MigrationPreservesActiveAttemptsResultsAndEvents
+--- PASS: TestV3MigrationPreservesActiveAttemptsResultsAndEvents (0.03s)
+=== RUN   TestV3MigrationFailureLeavesV2Intact
+--- PASS: TestV3MigrationFailureLeavesV2Intact (0.02s)
+=== RUN   TestV4MigrationPreservesOriginalPolicyAndAllowsAuditedRetry
+--- PASS: TestV4MigrationPreservesOriginalPolicyAndAllowsAuditedRetry (0.04s)
+=== RUN   TestV4MigrationFailureRollsBackAddedColumnsAndData
+--- PASS: TestV4MigrationFailureRollsBackAddedColumnsAndData (0.02s)
+=== RUN   TestV5MigrationBackfillsResultsInBatches
+--- PASS: TestV5MigrationBackfillsResultsInBatches (0.03s)
+=== RUN   TestV5MigrationMalformedTimestampRollsBack
+--- PASS: TestV5MigrationMalformedTimestampRollsBack (0.02s)
+=== RUN   TestOperatorRetryPreservesIdentityPolicyCountersAndReplays
+--- PASS: TestOperatorRetryPreservesIdentityPolicyCountersAndReplays (0.02s)
+=== RUN   TestConcurrentRetryActionAppliesOnceAcrossStores
+--- PASS: TestConcurrentRetryActionAppliesOnceAcrossStores (0.02s)
+=== RUN   TestCompetingNewRetryActionsRequireCurrentFailure
+--- PASS: TestCompetingNewRetryActionsRequireCurrentFailure (0.01s)
+=== RUN   TestRetryAndCancelAreSerializedAndReplayCannotResurrect
+--- PASS: TestRetryAndCancelAreSerializedAndReplayCannotResurrect (0.01s)
+=== RUN   TestRetryGrantAndEventRollbackTogether
+--- PASS: TestRetryGrantAndEventRollbackTogether (0.01s)
+=== RUN   TestRetryBudgetBoundariesAndValidation
+--- PASS: TestRetryBudgetBoundariesAndValidation (0.01s)
+=== RUN   TestRetriedWorkCrashRecoveryUsesExtendedBudget
+--- PASS: TestRetriedWorkCrashRecoveryUsesExtendedBudget (0.01s)
+=== RUN   TestAdmissionSerializedAcrossStores
+--- PASS: TestAdmissionSerializedAcrossStores (0.02s)
+=== RUN   TestRetryAdmissionAndReplay
+--- PASS: TestRetryAdmissionAndReplay (0.02s)
+=== RUN   TestPruneCutoffIsolationAndIdentity
+--- PASS: TestPruneCutoffIsolationAndIdentity (0.02s)
+=== RUN   TestPruneAtomicRollbackAndBoundedBatches
+--- PASS: TestPruneAtomicRollbackAndBoundedBatches (0.02s)
+=== RUN   TestStorageValidation
+--- PASS: TestStorageValidation (0.01s)
+=== RUN   TestAdmissionLimitVisibleInChildProcess
+--- PASS: TestAdmissionLimitVisibleInChildProcess (0.01s)
+=== RUN   TestActiveLimitIncludesRunningAndRetryWait
+--- PASS: TestActiveLimitIncludesRunningAndRetryWait (0.01s)
+=== RUN   TestPruneIgnoresFailedCanceledAndQueued
+--- PASS: TestPruneIgnoresFailedCanceledAndQueued (0.01s)
+=== RUN   TestSubmissionIdentityAndPersistence
+--- PASS: TestSubmissionIdentityAndPersistence (0.01s)
+=== RUN   TestIdentitySeparatesNamespaceHandlerVersionAndKey
+--- PASS: TestIdentitySeparatesNamespaceHandlerVersionAndKey (0.01s)
+=== RUN   TestConcurrentSubmissionsAcrossConnections
+--- PASS: TestConcurrentSubmissionsAcrossConnections (0.02s)
+=== RUN   TestSubmissionAndEventAreAtomic
+--- PASS: TestSubmissionAndEventAreAtomic (0.01s)
+=== RUN   TestValidationAndCanceledContext
+--- PASS: TestValidationAndCanceledContext (0.01s)
+=== RUN   TestRefuseUnrelatedOrFutureSchema
+--- PASS: TestRefuseUnrelatedOrFutureSchema (0.01s)
+=== RUN   TestProcessHelper
+--- PASS: TestProcessHelper (0.00s)
+=== RUN   TestAcceptanceSurvivesAbruptProcessExit
+--- PASS: TestAcceptanceSurvivesAbruptProcessExit (0.01s)
+=== RUN   TestConcurrentSubmissionsAcrossProcesses
+--- PASS: TestConcurrentSubmissionsAcrossProcesses (0.03s)
+=== RUN   TestURIPathKeepsWindowsDriveOutOfAuthority
+--- PASS: TestURIPathKeepsWindowsDriveOutOfAuthority (0.00s)
+=== RUN   TestHundredJoinedWaitersOneCanceledCaller
+--- PASS: TestHundredJoinedWaitersOneCanceledCaller (0.12s)
+=== RUN   TestWaitDeadlineAndLookupErrors
+--- PASS: TestWaitDeadlineAndLookupErrors (0.03s)
+=== RUN   TestWaitReturnsStoredFailureAndCancellationAsOutcomes
+=== RUN   TestWaitReturnsStoredFailureAndCancellationAsOutcomes/failed
+=== RUN   TestWaitReturnsStoredFailureAndCancellationAsOutcomes/canceled
+--- PASS: TestWaitReturnsStoredFailureAndCancellationAsOutcomes (0.02s)
+    --- PASS: TestWaitReturnsStoredFailureAndCancellationAsOutcomes/failed (0.01s)
+    --- PASS: TestWaitReturnsStoredFailureAndCancellationAsOutcomes/canceled (0.01s)
+=== RUN   TestWaitAcrossProcessAndStoreBoundaries
+--- PASS: TestWaitAcrossProcessAndStoreBoundaries (0.12s)
+=== RUN   TestWaitReturnsIndependentResultBytes
+--- PASS: TestWaitReturnsIndependentResultBytes (0.02s)
+=== RUN   TestSharedPollerLifetime
+--- PASS: TestSharedPollerLifetime (0.01s)
+=== RUN   TestSharedWaitClose
+--- PASS: TestSharedWaitClose (0.01s)
+=== RUN   TestCompletedPollerDoesNotCacheFailureAcrossRetry
+--- PASS: TestCompletedPollerDoesNotCacheFailureAcrossRetry (0.04s)
+=== RUN   TestWorkerFailurePanicAndOversizedResult
+=== RUN   TestWorkerFailurePanicAndOversizedResult/error
+=== RUN   TestWorkerFailurePanicAndOversizedResult/panic
+=== RUN   TestWorkerFailurePanicAndOversizedResult/oversize
+=== RUN   TestWorkerFailurePanicAndOversizedResult/long_error
+--- PASS: TestWorkerFailurePanicAndOversizedResult (0.05s)
+    --- PASS: TestWorkerFailurePanicAndOversizedResult/error (0.01s)
+    --- PASS: TestWorkerFailurePanicAndOversizedResult/panic (0.01s)
+    --- PASS: TestWorkerFailurePanicAndOversizedResult/oversize (0.02s)
+    --- PASS: TestWorkerFailurePanicAndOversizedResult/long_error (0.01s)
+=== RUN   TestWorkerRenewsLeaseDuringLongHandler
+--- PASS: TestWorkerRenewsLeaseDuringLongHandler (0.66s)
+=== RUN   TestWorkerLeaseLossCancelsHandlerAndRejectsResult
+--- PASS: TestWorkerLeaseLossCancelsHandlerAndRejectsResult (0.05s)
+=== RUN   TestWorkerCancellationLeavesRecoverableAttempt
+--- PASS: TestWorkerCancellationLeavesRecoverableAttempt (0.01s)
+=== RUN   TestRunBoundsConcurrencyAndStops
+--- PASS: TestRunBoundsConcurrencyAndStops (0.01s)
+=== RUN   TestWorkerRegistryAndNoWork
+--- PASS: TestWorkerRegistryAndNoWork (0.01s)
+PASS
+ok  	github.com/taskfused/taskfused	3.010s
+=== RUN   TestSubmitJoinGetCLI
+--- PASS: TestSubmitJoinGetCLI (0.01s)
+=== RUN   TestCLIValidationAndHelp
+--- PASS: TestCLIValidationAndHelp (0.00s)
+=== RUN   TestRetryFlagsAndAttemptHistoryCLI
+--- PASS: TestRetryFlagsAndAttemptHistoryCLI (0.01s)
+=== RUN   TestWaitTimeoutAndExplicitCancelCLI
+--- PASS: TestWaitTimeoutAndExplicitCancelCLI (0.03s)
+=== RUN   TestRetryAndPaginatedEventsCLI
+--- PASS: TestRetryAndPaginatedEventsCLI (0.04s)
+=== RUN   TestStorageCLI
+--- PASS: TestStorageCLI (0.02s)
+=== RUN   TestServeCLIValidationAndShutdown
+--- PASS: TestServeCLIValidationAndShutdown (0.00s)
+=== RUN   TestVersionDoesNotRequireNamespaceOrOpenDatabase
+--- PASS: TestVersionDoesNotRequireNamespaceOrOpenDatabase (0.00s)
+PASS
+ok  	github.com/taskfused/taskfused/cmd/taskfused	0.115s
+=== RUN   TestEndToEndDemoWithActualProcessKillAndIsolatedSamples
+Checking shared work, timeout isolation, process-kill recovery, cancellation and operator retry...
+Measuring sequential durable submission/execution and database growth...
+Measuring 0 waiters in 1 isolated process samples...
+Measuring 1 waiters in 1 isolated process samples...
+Measuring 100 waiters in 1 isolated process samples...
+--- PASS: TestEndToEndDemoWithActualProcessKillAndIsolatedSamples (2.55s)
+=== RUN   TestLatencySummaryNearestRankAndInputOwnership
+--- PASS: TestLatencySummaryNearestRankAndInputOwnership (0.00s)
+=== RUN   TestDemoWorkloadBoundsAndCanceledRun
+Checking shared work, timeout isolation, process-kill recovery, cancellation and operator retry...
+--- PASS: TestDemoWorkloadBoundsAndCanceledRun (0.00s)
+=== RUN   TestWaitingMeasurementRejectsInvalidBounds
+--- PASS: TestWaitingMeasurementRejectsInvalidBounds (0.00s)
+=== RUN   TestHTTPDemoWithActualWorkerKillAndRetention
+HTTP demo: shared submissions and independent caller timeout...
+HTTP demo: kill committed worker, replace it and inspect recovery...
+HTTP demo: cooperative cancellation, survivor and durable retry replay...
+HTTP demo: prune explicitly through Go administration and inspect HTTP markers...
+--- PASS: TestHTTPDemoWithActualWorkerKillAndRetention (2.23s)
+=== RUN   TestHTTPDemoRejectsWorkloadBounds
+--- PASS: TestHTTPDemoRejectsWorkloadBounds (0.00s)
+PASS
+ok  	github.com/taskfused/taskfused/examples/demo	4.788s
+?   	github.com/taskfused/taskfused/examples/worker	[no test files]
+?   	github.com/taskfused/taskfused/internal/buildinfo	[no test files]
+=== RUN   TestInternalErrorsLogCodesWithoutPrivateRequestOrStorageText
+--- PASS: TestInternalErrorsLogCodesWithoutPrivateRequestOrStorageText (0.01s)
+=== RUN   TestLostAcknowledgmentsResolveBySubmissionAndActionIdentity
+--- PASS: TestLostAcknowledgmentsResolveBySubmissionAndActionIdentity (0.01s)
+=== RUN   TestHTTPSharedExecutionAndWaiting
+--- PASS: TestHTTPSharedExecutionAndWaiting (0.03s)
+=== RUN   TestHTTPCancelRetryAndCapacity
+--- PASS: TestHTTPCancelRetryAndCapacity (0.01s)
+=== RUN   TestHTTPValidationAndBrowserBoundary
+--- PASS: TestHTTPValidationAndBrowserBoundary (0.54s)
+=== RUN   TestStatusPageEscapesOperationText
+--- PASS: TestStatusPageEscapesOperationText (0.01s)
+=== RUN   TestHTTPClientCancellationLeavesWork
+--- PASS: TestHTTPClientCancellationLeavesWork (0.01s)
+=== RUN   TestListenerAndAuthorityValidation
+--- PASS: TestListenerAndAuthorityValidation (0.01s)
+=== RUN   TestShutdownCancelsPendingHTTPWaitWithoutCancelingOperation
+--- PASS: TestShutdownCancelsPendingHTTPWaitWithoutCancelingOperation (0.04s)
+=== RUN   TestIPv6LoopbackServingWhenAvailable
+    server_test.go:119: IPv6 loopback unavailable: listen tcp [::1]:0: socket: address family not supported by protocol
+--- SKIP: TestIPv6LoopbackServingWhenAvailable (0.00s)
+=== RUN   TestSlowClientsAreBoundedWithoutWritingOperations
+=== RUN   TestSlowClientsAreBoundedWithoutWritingOperations/header
+=== PAUSE TestSlowClientsAreBoundedWithoutWritingOperations/header
+=== RUN   TestSlowClientsAreBoundedWithoutWritingOperations/body
+=== PAUSE TestSlowClientsAreBoundedWithoutWritingOperations/body
+=== CONT  TestSlowClientsAreBoundedWithoutWritingOperations/header
+=== CONT  TestSlowClientsAreBoundedWithoutWritingOperations/body
+--- PASS: TestSlowClientsAreBoundedWithoutWritingOperations (0.00s)
+    --- PASS: TestSlowClientsAreBoundedWithoutWritingOperations/header (3.02s)
+    --- PASS: TestSlowClientsAreBoundedWithoutWritingOperations/body (5.02s)
+PASS
+ok  	github.com/taskfused/taskfused/localhttp	5.709s

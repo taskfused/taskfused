@@ -17,7 +17,7 @@ product's distinguishing behavior. Automatic stage fusion is not a v0.1 feature.
 ## Work sequence
 
 Use sessions of about two to three hours as planning units. Completion is measured
-by acceptance criteria, not time spent. Each session updates RESUME.md with changes,
+by acceptance criteria, not time spent. Each session updates CLAUDE.md with changes,
 checks, limitations, and the exact next action. The initial ten-session budget can
 expand if crash and ownership testing exposes more work.
 
@@ -26,7 +26,7 @@ application marker, opaque input contract, atomic operation/event acceptance,
 explicit duplicate joining, conflicts, and namespace-qualified lookup. Provide
 submit/get CLI commands. Acceptance: concurrent callers accept one identity,
 conflicting input is refused, and accepted work survives an abrupt process exit.
-Completed. See RESUME.md for validation.
+Completed. See the tests and test/results for validation.
 
 Sessions 3–4: execution contract and worker core. First settle terminal-state
 joining, retries, cancellation, ownership, and schema migration. Implement handler
@@ -62,10 +62,9 @@ A runnable self-reexecuting Go harness and the first measured baseline are now
 complete; see docs/MEASUREMENTS.md. It checks real process-kill recovery and uses
 isolated waiter samples. Shared polling is now measured and implemented. Schema v5 adds durable namespace
 admission limits, usage inspection and bounded succeeded-result pruning while
-retaining exact input/identity/action records. See docs/STORAGE.md. Remaining:
-resolve public licensing, version policy and any publication authorization.
-The clean-checkout native candidate packaging/verification gate is implemented;
-see PACKAGING.md and COMPATIBILITY.md. Storage fault tests and the
+retaining exact input/identity/action records. See docs/STORAGE.md. Licensing (Apache 2.0),
+the version policy and automated releases for Linux, macOS and Windows are now in
+place; see RELEASING.md and COMPATIBILITY.md. Storage fault tests and the
 release-readiness review are complete within the local prototype scope; see
 docs/FAULTS.md and docs/READINESS.md. The loopback HTTP surface and
 read-only status page are now implemented; see docs/HTTP.md. Latency/storage observations are not release claims.
@@ -95,14 +94,11 @@ introduced. TaskFused owns operation identity and shared execution semantics.
 
 ## Release gate
 
-A first public release requires tested execution/recovery, clear operational
-limits, honest at-least-once semantics, a selected license, CI, reproducible demos,
-and a versioned release procedure. The public repository is a prototype with an
-all-rights-reserved notice. Local execution/recovery now exist, but a public
-release still needs the licensing/version/publication decisions in READINESS.md.
-Native candidate packaging, checksums, extracted-artifact smoke tests and a CI gate
-are now implemented without release uploads or tags.
+A public release required tested execution/recovery, clear operational limits,
+honest at-least-once semantics, a selected license, CI, reproducible demos and a
+versioned release procedure. All are in place: TaskFused is Apache 2.0, CI runs on
+Linux and macOS, and raising `Version` releases smoke-tested binaries for Linux,
+macOS and Windows on its own (RELEASING.md). v0.1.0 is the first release.
 Statement/commit/full-storage/read-only/contention and lost-acknowledgment tests
-now supplement process-crash coverage; physical filesystem/VFS durability remains
-unqualified. TaskFused.com can
-document the prototype once a separate site target is provided. Do not create a replacement site or choose hosting implicitly.
+supplement process-crash coverage; physical filesystem/VFS durability remains
+unqualified. The TaskFused.com site lives in its own repository.
