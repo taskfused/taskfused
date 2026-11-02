@@ -4,6 +4,12 @@ This file says where the next session starts and what comes next. What comes
 next is decided with the owner before it goes here, and work starts only when
 the owner says go.
 
+## Where the next session starts
+
+TaskFused 0.2.0 is released (pure-Go SQLite, identity expiry, Prometheus
+metrics; schema v6) and softdev-plan item 30 is done. Nothing is in progress.
+The plan's remaining candidate, a Postgres store, is not approved; ask YK first.
+
 ## Releases
 
 Releases are automated. To release, raise `Version` in `taskfused.go` and push to
@@ -48,7 +54,7 @@ Images are drawn into static/images.
 Every number comes from `test/results/`; when a recording changes a number, update
 the site too.
 
-## In progress: TaskFused 0.2 (softdev-plan item 30, approved by YK 2026-11-02)
+## Done: TaskFused 0.2 (softdev-plan item 30, approved by YK 2026-11-02)
 
 What and why: the mattn/go-sqlite3 driver needs cgo and a C compiler, which is
 why Windows only gets a smoke check and the release needs cross C toolchains;
@@ -93,5 +99,4 @@ Steps:
 4. [x] Docs (README, CONTRACT, STORAGE, HTTP, READINESS, COMPATIBILITY, RELEASING, NOTICE, THIRD_PARTY_LICENSES). CI green on Linux, macOS and Windows (aedde09).
 5. [x] Independent review, two rounds. Round 1, no blockers; should-fix, all fixed with tests: the pure-Go driver reads a zero-length BLOB as nil, so empty input came back as JSON null (now normalized to empty, and empty successful results too); a short retention could delete an operation canceled while running before its worker heard of the cancel, turning ErrOperationCanceled into ErrLeaseLost (now kept while a running or canceled attempt's lease lasts; a first version also held back self-finished attempts, caught by the new test); set-limits silently reset retention when the flag was left out (now required); tests for lease-expiry failure, retry_wait round trip and cancel while running. Nits fixed: ExpireDue continues past a failing namespace, metric labels escape invalid UTF-8 and %, READINESS wording, NULL completion documented, record before raising the version, license fences. Round 2, no blockers or should-fix; nits: site reference command (step 7), a % label example (added). Fresh test/results recorded by the record workflow (88d4ea0, for f767ea6, go1.26.10): all packages pass, race too; smoke check and both demos passed.
 6. [x] 0.2.0 released by the workflow (commit e42dae9, release run 41442243537; the run for the record commit stood down as main had moved on). All five archives match SHA256SUMS at the tag and at latest, each with generated license texts. The downloaded Linux binary reports 0.2.0, cgo false, schema 6; set-limits without -identity-retention is refused; with 1s, a canceled operation expired after the window, Get then said not found, and the same key submitted with -join made a new operation; serve's /metrics answered Prometheus text with every family, and a cross-origin request got 403.
-7. [ ] taskfused.com post with its own SVG, pages; softdevstudio.com note;
-   softdev-plan log row.
+7. [x] taskfused.com post "TaskFused 0.2 Lets Finished Work Expire and Adds Prometheus Metrics" with taskfused-0-2.svg (rasterized and inspected), reference, download, quick start and about pages (site bf4bd5c); softdevstudio.com note and listing; softdev-plan item 30 done with a log row.
