@@ -91,7 +91,7 @@ Steps:
 2. [x] B1 identity expiry, schema v6, CLI and serve, tests (expiry_test.go: every state, batches, completion-time cutoff, reopened retry, ExpireDue across namespaces, v5 to v6 migration backfill).
 3. [x] B2 metrics endpoint, tests (localhttp/metrics_test.go: families, label escaping, lease expiries, browser checks).
 4. [x] Docs (README, CONTRACT, STORAGE, HTTP, READINESS, COMPATIBILITY, RELEASING, NOTICE, THIRD_PARTY_LICENSES). CI green on Linux, macOS and Windows (aedde09).
-5. [ ] Independent review (at most two rounds), fixes, fresh test/results.
+5. [x] Independent review, two rounds. Round 1, no blockers; should-fix, all fixed with tests: the pure-Go driver reads a zero-length BLOB as nil, so empty input came back as JSON null (now normalized to empty, and empty successful results too); a short retention could delete an operation canceled while running before its worker heard of the cancel, turning ErrOperationCanceled into ErrLeaseLost (now kept while a running or canceled attempt's lease lasts; a first version also held back self-finished attempts, caught by the new test); set-limits silently reset retention when the flag was left out (now required); tests for lease-expiry failure, retry_wait round trip and cancel while running. Nits fixed: ExpireDue continues past a failing namespace, metric labels escape invalid UTF-8 and %, READINESS wording, NULL completion documented, record before raising the version, license fences. Round 2, no blockers or should-fix; nits: site reference command (step 7), a % label example (added). Fresh test/results: pending the record workflow.
 6. [ ] 0.2.0 released by the workflow, downloads checked.
 7. [ ] taskfused.com post with its own SVG, pages; softdevstudio.com note;
    softdev-plan log row.
