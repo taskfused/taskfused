@@ -24,7 +24,8 @@ result; joining failed or canceled work returns its stored terminal outcome.
 Joining never reruns terminal work; only an explicit operator retry can reopen
 a failed record.
 Use a new operation key for intentionally new work. There is no freshness-based
-result cache, terminal-state TTL, or record deletion.
+result cache. Finished records are deleted only by identity expiry, when the
+namespace has an IdentityRetention (see below); after that the key is new work.
 
 A lookup or attempt-history query requires namespace and ID. A wrong namespace
 returns `ErrNotFound`. Namespace is not a verified security credential; the
@@ -223,7 +224,7 @@ the original grant even when the effective limit later increases.
 
 Schema v5 persists namespace MaxOperations/MaxActive limits (zero unlimited).
 New identities check total and active counts in the admission write transaction;
-new retry grants check active counts. All identities remain counted forever, while
+new retry grants check active counts. All kept identities are counted, while
 active is queued/running/retry_wait. Joins and recorded action replays bypass
 admission without bypassing identity/policy checks. Lowering limits never cancels
 or prevents completion of admitted work. ErrCapacity writes no partial records.
@@ -236,7 +237,16 @@ submission equality and replay protection. Reads can observe payload or prune ma
 according to transaction order; pruning never initiates execution. It releases no
 identity slots, deletes no input/history/actions and performs no secure erasure or
 file shrinking. Usage reports consistent namespace logical counts and payload
-lengths, not a disk quota. See STORAGE.md for the complete operational contract.
+lengths, not a disk quota.
+
+Schema v6 adds IdentityRetention per namespace (zero keeps identities forever).
+ExpireIdentities deletes, in one atomic batch of up to 200, finished operations
+(succeeded, failed, canceled) completed before now minus the retention, with
+their events, attempts, retry actions and retention rows; their identities are
+free and their slots no longer count. Queued, running and retry_wait work is never
+deleted. A trigger-maintained index records completion to the millisecond, so a
+reopened (retried) operation leaves it until it finishes again. See STORAGE.md for
+the complete operational contract.
 
 
 ## Local transport
@@ -249,9 +259,10 @@ interface; they are not remote authentication. Timeout/disconnect/shutdown cance
 request contexts, never implicitly cancels operations. Commit acknowledgment can
 still be uncertain, so resolve Submit/retry with their durable identities.
 Succeeded/failed/canceled Wait outcomes return HTTP200; result_pruned remains
-explicit. Policy changes and pruning have no HTTP mutation route. The status page
+explicit. Policy changes, pruning and expiry have no HTTP mutation route. GET /metrics
+serves read-only Prometheus text. The status page
 is read-only and escapes operation text. See HTTP.md for route/error mappings,
-limits, shutdown ownership and verification limits. Schema remains v5.
+limits, shutdown ownership and verification limits. Schema is v6.
 
 
 ## Storage errors and acceptance uncertainty

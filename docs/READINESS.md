@@ -1,6 +1,6 @@
 # TaskFused readiness review
 
-Reviewed 2026-10-17 for the v0.1.0 release. TaskFused is ready for use within its
+Reviewed 2026-10-17 for the v0.1.0 release and updated for v0.2.0 (2026-11-02). TaskFused is ready for use within its
 stated single-host Go/SQLite scope. The core and loopback interface run end to end,
 with executable demos and fault tests. It is open source under the Apache License
 2.0, and releases are automated: raising `Version` publishes binaries for Linux,
@@ -16,7 +16,8 @@ This review is not a production reliability certification.
 | Failure/recovery | Bounded automatic retries, backoff, cancellation, real worker Process.Kill and lease recovery |
 | Manual retry | Failed-only, observed-count check, durable action replay and lifetime budget cap |
 | Shared waiting | Independent contexts, one local poller per operation group, cross-process observation and shutdown tests |
-| Capacity/retention | Durable admission limits, logical usage, bounded explicit result pruning and preserved identities/actions |
+| Capacity/retention | Durable admission limits, logical usage, bounded explicit result pruning, and per-namespace identity expiry of finished work (trigger-maintained, every state, batched, migration-tested) |
+| Metrics | Prometheus text at GET /metrics on the loopback server: operations and attempts by namespace and state, oldest queued age, limits and retention |
 | Local interface | CLI, loopback HTTP API, browser boundary checks and read-only escaped status page |
 | Demonstrations | Embedded and HTTP self-starting scenarios, ordinary IPv4/IPv6 reports and race-instrumented killed workers |
 | Storage fault behavior | Statement/deferred-commit rollback, SQLITE_FULL page quota, read-only connection, contention and lost HTTP acknowledgments |
@@ -25,10 +26,10 @@ This review is not a production reliability certification.
 | Measurements | Preserved ordinary-build baseline and shared-poller comparison, with explicit workload/host caveats |
 
 The full vet/race/build suite passes on Linux amd64 (recorded in test/results/),
-and the test workflow runs the suite on Linux and macOS with Go 1.26.x, the race
-detector on Linux, and the smoke check on a Windows runner. Windows runs the smoke
-check, not the full suite. go.mod declares Go 1.24; that minimum is not separately tested. SQLite is
-bundled through mattn/go-sqlite3 and requires a C toolchain to build. Schema is v5;
+and the test workflow runs the full suite on Linux, macOS and Windows with Go
+1.26.x, the race detector on Linux, and the smoke check on a Windows runner. go.mod
+declares Go 1.26. SQLite comes from modernc.org/sqlite, a pure-Go translation, so
+no C toolchain is needed. Schema is v6;
 older processes must stop before migration. No mixed-version rolling upgrade is
 supported. See COMPATIBILITY.md for the version policy.
 

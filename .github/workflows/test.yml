@@ -33,6 +33,9 @@ jobs:
         run: go test -race -count=1 ./...
       - run: go build ./...
       - run: python3 -B -m unittest discover -s scripts -p '*_test.py'
+      - name: Every compiled-in module has a license file
+        if: runner.os == 'Linux'
+        run: bash scripts/third-party-licenses.sh > /dev/null
 
   # The full suite on Windows, pure Go like the other two (no C compiler),
   # then the release smoke check on Windows binaries built the release way.

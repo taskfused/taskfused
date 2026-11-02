@@ -96,7 +96,8 @@ jobs:
       - run: python3 scripts/smoke.py pkg
       - name: Package
         run: |
-          cp LICENSE NOTICE THIRD_PARTY_LICENSES.md README.md pkg/
+          cp LICENSE NOTICE README.md pkg/
+          bash scripts/third-party-licenses.sh > pkg/THIRD_PARTY_LICENSES.md
           tar -czf taskfused_linux_${{ matrix.arch }}.tar.gz -C pkg .
       - uses: actions/upload-artifact@v7
         with:
@@ -137,8 +138,12 @@ jobs:
       - if: matrix.arch == 'arm64'
         run: python3 scripts/smoke.py pkg
       - name: Package
+        env:
+          GOOS: darwin
+          GOARCH: ${{ matrix.arch }}
         run: |
-          cp LICENSE NOTICE THIRD_PARTY_LICENSES.md README.md pkg/
+          cp LICENSE NOTICE README.md pkg/
+          bash scripts/third-party-licenses.sh > pkg/THIRD_PARTY_LICENSES.md
           tar -czf taskfused_darwin_${{ matrix.arch }}.tar.gz -C pkg .
       - uses: actions/upload-artifact@v7
         with:
@@ -170,8 +175,12 @@ jobs:
           done
           file pkg/*
       - name: Package
+        env:
+          GOOS: windows
+          GOARCH: amd64
         run: |
-          cp LICENSE NOTICE THIRD_PARTY_LICENSES.md README.md pkg/
+          cp LICENSE NOTICE README.md pkg/
+          bash scripts/third-party-licenses.sh > pkg/THIRD_PARTY_LICENSES.md
           (cd pkg && zip -q ../taskfused_windows_amd64.zip *)
       - uses: actions/upload-artifact@v7
         with:

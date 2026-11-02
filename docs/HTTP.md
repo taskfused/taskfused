@@ -16,8 +16,31 @@ between reads. Event API pagination is required beyond the first 50 events.
 
 The server does not execute handlers. Start a separate registered Go worker, for
 example `go run ./examples/worker -db demo.db` for demo/echo/v1. The existing CLI
-set-limits and prune-results commands remain the administrative interface; neither
-has an HTTP route. No schema change or data migration is introduced by HTTP.
+set-limits, prune-results and expire-identities commands remain the
+administrative interface; none has an HTTP route. `serve` also runs identity
+expiry every minute (`-expire-every`, 0 turns it off). No schema change or data
+migration is introduced by HTTP.
+
+## Metrics
+
+GET /metrics returns the Prometheus text format (version 0.0.4), read from one
+SQLite snapshot by Store.Metrics, so a scrape takes no write lock. Every family is
+a gauge, since identity expiry deletes rows:
+
+| Metric | Labels | Meaning |
+| --- | --- | --- |
+| taskfused_build_info | version, schema | Always 1 |
+| taskfused_operations | namespace, state | Kept operations in each of the six states; queue depth is queued plus retry_wait |
+| taskfused_attempts | namespace, state | Kept attempts by state; `expired` counts lease expiries |
+| taskfused_oldest_queued_age_seconds | namespace | Seconds since the oldest queued operation was submitted (to the second); 0 when none |
+| taskfused_limit_max_operations, taskfused_limit_max_active | namespace | Admission limits; 0 is unlimited |
+| taskfused_identity_retention_seconds | namespace | Identity retention; 0 keeps identities forever |
+
+Every namespace with operations or limits appears, with zeros for empty states, so
+there is one series per namespace and state; many namespaces mean many series.
+A scrape counts every operation and attempt row, so its cost grows with what the
+file keeps. The same Host, Origin and Fetch Metadata checks apply as on every
+route, so point Prometheus at the exact address the server prints.
 
 ## Routes
 
@@ -34,6 +57,7 @@ In the following paths, N is the URL-escaped namespace and ID is the operation I
 | POST | /api/namespaces/N/operations/ID/retry | Retry JSON | 200 RetryResult |
 | GET | /api/namespaces/N/usage | None | 200 Usage |
 | GET | / | namespace and optional id query | 200 HTML |
+| GET | /metrics | None | 200 Prometheus text (0.0.4) |
 
 Submission body (namespace comes only from the path):
 

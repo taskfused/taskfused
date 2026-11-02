@@ -31,11 +31,14 @@ already exists and stops quietly.
   the newest tag. [scripts/release-plan.py](scripts/release-plan.py) has the
   rules, and [scripts/release_plan_test.py](scripts/release_plan_test.py) its cases.
 - **linux.** Builds `taskfused`, `taskfused-worker` and `taskfused-demo` from that
-  exact commit, statically linked against musl, on x86-64 and ARM runners, checks
-  they are static, and runs [scripts/smoke.py](scripts/smoke.py) on them.
-- **macos.** Builds for Apple silicon and Intel with clang. The Apple silicon
-  binaries run the smoke check; the Intel ones are checked for their architecture.
-- **windows.** Builds the `.exe` files on Linux with mingw.
+  exact commit, pure Go (`CGO_ENABLED=0`, so static), on x86-64 and ARM runners,
+  checks they are static, and runs [scripts/smoke.py](scripts/smoke.py) on them.
+- **macos.** Builds for Apple silicon and Intel. The Apple silicon binaries run
+  the smoke check; the Intel ones are checked for their architecture.
+- **windows.** Cross-builds the `.exe` files on Linux.
+- Every archive gets a THIRD_PARTY_LICENSES.md with the full license texts of the
+  modules compiled in, written by
+  [scripts/third-party-licenses.sh](scripts/third-party-licenses.sh).
 - **windows-check.** Runs the smoke check on the Windows binaries on a Windows
   runner, including the interrupt shutdown (CTRL_BREAK) and the killed-worker demo.
 - **release.** Runs only after every build and check passed. Writes SHA256SUMS and
@@ -45,7 +48,7 @@ already exists and stops quietly.
   runs for the same version can't publish twice.
 
 The smoke check, on each binary set: every binary reports the expected version, a
-CGO build and schema 5; then submit and join one operation, run it with the real
+pure-Go build and the checkout's schema; then submit and join one operation, run it with the real
 worker, wait for the echoed result, set limits, prune the result, check a new
 submission is rejected at the limit, serve the loopback HTTP API and status page,
 stop the worker and the server with an interrupt and expect a clean exit, and run

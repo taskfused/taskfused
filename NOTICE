@@ -5,13 +5,8 @@ This product includes software developed at TaskFused.com (https://taskfused.com
 It is licensed under the Apache License, Version 2.0; see LICENSE.
 
 The TaskFused package, the taskfused, taskfused-worker and taskfused-demo
-commands and their ready-built binaries also contain:
-  go-sqlite3, Copyright (c) 2014 Yasuhiro Matsumoto, MIT License
-  SQLite, in the public domain
-  The Go runtime and standard library, Copyright 2009 The Go Authors,
-  BSD-style license
-  musl libc (Linux binaries only), Copyright 2005-2020 Rich Felker,
-  et al., MIT License
-  mingw-w64 runtime (Windows binaries only), Copyright the mingw-w64
-  project, ZPL 2.1 and other permissive licenses
-Their notices are in THIRD_PARTY_LICENSES.md.
+commands and their ready-built binaries also contain the Go modules listed in
+THIRD_PARTY_LICENSES.md, among them modernc.org/sqlite (a translation of
+SQLite, which is in the public domain) and the Go runtime and standard
+library. Their licenses are listed there, and their full texts ship in every
+release archive.

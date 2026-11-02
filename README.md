@@ -7,11 +7,12 @@ operation identities, runs registered Go handlers with leases and bounded retrie
 and stores results and attempt history in local SQLite. Restarted workers can
 recover expired attempts without changing the operation ID or input.
 
-**Status: v0.1.0, an early single-host release.** Submission, duplicate joining, leased claims,
+**Status: v0.2.0, an early single-host release.** Submission, duplicate joining, leased claims,
 renewal, worker concurrency, retries, stored results, crash recovery, shared waiting,
 explicit operation cancellation, failed-operation retry and paginated event
-inspection, durable admission limits and bounded result pruning exist. HTTP
-endpoints and a read-only status page are available on loopback. Multi-host
+inspection, durable admission limits, bounded result pruning and per-namespace
+identity expiry exist. HTTP endpoints, Prometheus metrics and a read-only status
+page are available on loopback. It is pure Go: no C compiler is needed to build it. Multi-host
 coordination is not implemented. External effects require
 handler-level idempotency; arbitrary exactly-once execution is not promised.
 TaskFused is open source under the Apache License 2.0. See
@@ -62,7 +63,8 @@ allocation measurements include waiter setup/teardown, and native SQLite memory
 is not included in Go allocation totals.
 
 See [the measured baseline and methodology](docs/MEASUREMENTS.md) and
-[the raw report](docs/measurements/2026-10-17-linux-amd64.json). These are development
+[the raw report](docs/measurements/2026-10-17-linux-amd64.json), recorded with 0.1 and
+its cgo SQLite driver; current runs are in [test/results](test/results). These are development
 observations for one environment, not production capacity or durability promises.
 
 ## Run the HTTP recovery demo
@@ -80,8 +82,9 @@ See [HTTP demo procedure and captured IPv4/IPv6 reports](docs/HTTP_DEMO.md).
 ## Try it
 
 With a release archive, use its `taskfused` and `taskfused-worker` in place of
-the build and `go run` commands below. To build from source you need Go 1.24 or
-later, CGO enabled, and a C compiler for the SQLite driver.
+the build and `go run` commands below. To build from source you need Go 1.26 or
+later; the SQLite driver (modernc.org/sqlite) is pure Go, so no C compiler is
+needed.
 
 ```sh
 go build ./cmd/taskfused
@@ -119,7 +122,10 @@ duration flags accept strings such as `50ms`. Retrying does not change input.
 ./taskfused serve -db demo.db -listen 127.0.0.1:8080
 ```
 
-Open http://127.0.0.1:8080/ to inspect namespace usage and an operation ID. The
+Open http://127.0.0.1:8080/ to inspect namespace usage and an operation ID, and
+point Prometheus at http://127.0.0.1:8080/metrics for operations and attempts by
+namespace and state (expired attempts are lease expiries), the oldest queued
+operation's age, and each namespace's limits. The
 read-only page shows state, result availability/pruning and event history. Start a
 registered worker separately to execute submissions. JSON APIs support submit,
 get, wait, attempts, events, cancel, retry and usage; limit changes and result
@@ -140,7 +146,23 @@ retained identities, while active means queued/running/retry_wait. Joins and app
 retry-action replays remain readable at capacity. Pruning removes only succeeded
 result bytes, preserves exact inputs and all identity/action records, and marks
 result_pruned without allowing execution again. It does not release identity slots
-or guarantee smaller database files. Retention is explicit, with no background job.
+or guarantee smaller database files.
+
+Identities can expire too:
+
+```sh
+./taskfused set-limits -db demo.db -namespace demo -max-operations 10000 -max-active 100 -identity-retention 720h
+./taskfused expire-identities -db demo.db -namespace demo -limit 200
+```
+
+With an identity retention, a finished operation (succeeded, failed or canceled)
+is deleted with its attempts, events and retry actions once its completion is
+older than the retention. Its slot is free and the same key is new work again,
+so joining and replay protection last only as long as the retention. Queued,
+running and retry_wait work is never touched. `serve` does this every minute for
+every namespace with a retention (`-expire-every`, `0` turns it off); an
+embedding calls `ExpireIdentities` or `ExpireDue`. `set-limits` replaces the
+whole policy, so leaving `-identity-retention` out turns expiry off.
 See [storage guarantees, upgrade procedure and limitations](docs/STORAGE.md).
 
 ## Embed a worker
@@ -325,7 +347,7 @@ exceed realistic scheduling and SQLite write delays; 100ms is an API minimum,
 not an operational recommendation. Failed handler attempts back off exponentially;
 crashed attempts consume budget and are reclaimed after expiration.
 
-Database schema versions 1–4 are upgraded transactionally to version 5 on open. IDs,
+Database schema versions 1–5 are upgraded transactionally to version 6 on open. IDs,
 inputs, existing events, active attempts, results and original retry/lease policy
 are preserved. Newer schema versions are rejected. Stop older processes before an
 upgrade; mixed-version workers are not supported.
@@ -339,8 +361,8 @@ go build ./...
 sh scripts/record-tests.sh   # every test and both demos, written to test/results/
 ```
 
-Every push to `main` runs the tests on Linux and macOS and the smoke check on
-Windows. Raising `Version` in
+Every push to `main` runs the full test suite on Linux, macOS and Windows, and the
+smoke check on Windows binaries. Raising `Version` in
 `taskfused.go` releases it: once the tests pass, the release workflow builds the
 binaries for every system, smoke-tests them with `scripts/smoke.py`, then tags the
 commit and publishes the release ([RELEASING.md](RELEASING.md)). See
@@ -350,6 +372,7 @@ and [CLAUDE.md](CLAUDE.md) for where work picks up next.
 ## License
 
 TaskFused is licensed under the [Apache License, Version 2.0](LICENSE). Copyright
-TaskFused.com 2026; see [NOTICE](NOTICE). The binaries also contain go-sqlite3,
-SQLite, the Go runtime and, on Linux, musl libc; their licenses are in
+TaskFused.com 2026; see [NOTICE](NOTICE). The binaries also contain
+modernc.org/sqlite (a Go translation of SQLite), its supporting modules and the
+Go runtime; their licenses are in
 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
