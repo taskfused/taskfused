@@ -25,7 +25,7 @@ import (
 // Version is this release of TaskFused. Raising it on main releases it: once
 // the test workflow passes, the release workflow builds, checks, tags and
 // publishes vX.Y.Z (see RELEASING.md).
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 const MaxInputBytes = 1024 * 1024
 
