@@ -12,8 +12,10 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -78,7 +80,12 @@ type recordCounts struct {
 }
 
 func readMetadata(ctx context.Context, path string) (recordCounts, string, error) {
-	u := url.URL{Scheme: "file", Path: path}
+	// file:///C:/... on Windows: the drive letter must not land in the authority.
+	p := filepath.ToSlash(path)
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	u := url.URL{Scheme: "file", Path: p}
 	u.RawQuery = url.Values{"mode": {"ro"}, "_pragma": {"busy_timeout(5000)"}}.Encode()
 	db, err := sql.Open("sqlite", u.String())
 	if err != nil {

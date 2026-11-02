@@ -189,6 +189,7 @@ func NewHandlerWithLogger(store *taskfused.Store, authority string, logger *slog
 		return writeJSON(w, 200, result)
 	}))
 	mux.HandleFunc("GET /{$}", wrap(statusPage(store)))
+	mux.HandleFunc("GET /metrics", wrap(metricsPage(store)))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, &apiError{404, "not_found", "route not found"})
 	})
