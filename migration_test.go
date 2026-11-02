@@ -18,7 +18,7 @@ import (
 // Open (which advances to the current schema). The old worker schema has strict state checks.
 func v2Store(t *testing.T, path string) *Store {
 	t.Helper()
-	db, err := sql.Open("sqlite3", path)
+	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestV3MigrationFailureLeavesV2Intact(t *testing.T) {
 		s.Close()
 		t.Fatal("expected migration name conflict")
 	}
-	db, err := sql.Open("sqlite3", path)
+	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -296,7 +296,7 @@ func TestV4MigrationFailureRollsBackAddedColumnsAndData(t *testing.T) {
 		s.Close()
 		t.Fatal("expected migration conflict")
 	}
-	db, err := sql.Open("sqlite3", path)
+	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		t.Fatal(err)
 	}

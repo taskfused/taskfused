@@ -64,7 +64,7 @@ jobs:
           fi
           python3 scripts/release-plan.py
 
-  # Static binaries (musl), built and smoke-tested on their own architecture.
+  # Static binaries (pure Go, no cgo), built and smoke-tested on their own architecture.
   linux:
     needs: plan
     if: needs.plan.outputs.tag != ''
@@ -83,16 +83,13 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq musl-tools
       - name: Build static binaries
         env:
-          CC: musl-gcc
-          CGO_ENABLED: "1"
+          CGO_ENABLED: "0"
         run: |
           mkdir pkg
           for p in cmd/taskfused:taskfused examples/worker:taskfused-worker examples/demo:taskfused-demo; do
-            go build -trimpath -tags 'sqlite_omit_load_extension netgo osusergo' \
-              -ldflags '-s -w -linkmode external -extldflags "-static"' -o "pkg/${p#*:}" "./${p%:*}"
+            go build -trimpath -ldflags '-s -w' -o "pkg/${p#*:}" "./${p%:*}"
           done
           file pkg/*
           file pkg/taskfused | grep -q 'statically linked'
@@ -128,13 +125,12 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
       - name: Build
         env:
-          CGO_ENABLED: "1"
+          CGO_ENABLED: "0"
           GOARCH: ${{ matrix.arch }}
-          CC: clang -arch ${{ matrix.clang }}
         run: |
           mkdir pkg
           for p in cmd/taskfused:taskfused examples/worker:taskfused-worker examples/demo:taskfused-demo; do
-            go build -trimpath -tags sqlite_omit_load_extension -ldflags '-s -w' -o "pkg/${p#*:}" "./${p%:*}"
+            go build -trimpath -ldflags '-s -w' -o "pkg/${p#*:}" "./${p%:*}"
           done
           file pkg/*
           file pkg/taskfused | grep -q '${{ matrix.clang }}'
@@ -149,7 +145,7 @@ jobs:
           name: taskfused_darwin_${{ matrix.arch }}
           path: taskfused_darwin_${{ matrix.arch }}.tar.gz
 
-  # Built on Linux with mingw, then checked on a Windows runner below.
+  # Cross-built on Linux (pure Go), then checked on a Windows runner below.
   windows:
     needs: plan
     if: needs.plan.outputs.tag != ''
@@ -161,17 +157,16 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-mingw-w64-x86-64 zip
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq zip
       - name: Build
         env:
-          CC: x86_64-w64-mingw32-gcc
-          CGO_ENABLED: "1"
+          CGO_ENABLED: "0"
           GOOS: windows
           GOARCH: amd64
         run: |
           mkdir pkg
           for p in cmd/taskfused:taskfused examples/worker:taskfused-worker examples/demo:taskfused-demo; do
-            go build -trimpath -tags sqlite_omit_load_extension -ldflags '-s -w' -o "pkg/${p#*:}.exe" "./${p%:*}"
+            go build -trimpath -ldflags '-s -w' -o "pkg/${p#*:}.exe" "./${p%:*}"
           done
           file pkg/*
       - name: Package

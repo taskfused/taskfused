@@ -79,11 +79,8 @@ type recordCounts struct {
 
 func readMetadata(ctx context.Context, path string) (recordCounts, string, error) {
 	u := url.URL{Scheme: "file", Path: path}
-	q := u.Query()
-	q.Set("mode", "ro")
-	q.Set("_busy_timeout", "5000")
-	u.RawQuery = q.Encode()
-	db, err := sql.Open("sqlite3", u.String())
+	u.RawQuery = url.Values{"mode": {"ro"}, "_pragma": {"busy_timeout(5000)"}}.Encode()
+	db, err := sql.Open("sqlite", u.String())
 	if err != nil {
 		return recordCounts{}, "", err
 	}

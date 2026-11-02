@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 // Version is this release of TaskFused. Raising it on main releases it: once
@@ -134,14 +134,12 @@ func Open(ctx context.Context, path string) (*Store, error) {
 		return nil, fmt.Errorf("database path: %w", err)
 	}
 	u := url.URL{Scheme: "file", Path: uriPath(absolute)}
-	q := u.Query()
-	q.Set("_busy_timeout", "5000")
-	q.Set("_journal_mode", "WAL")
-	q.Set("_synchronous", "FULL")
-	q.Set("_foreign_keys", "on")
-	q.Set("_txlock", "immediate")
+	q := url.Values{
+		"_pragma": {"busy_timeout(5000)", "journal_mode(WAL)", "synchronous(FULL)", "foreign_keys(ON)"},
+		"_txlock": {"immediate"},
+	}
 	u.RawQuery = q.Encode()
-	db, err := sql.Open("sqlite3", u.String())
+	db, err := sql.Open("sqlite", u.String())
 	if err != nil {
 		return nil, err
 	}

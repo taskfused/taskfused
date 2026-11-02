@@ -27,7 +27,7 @@ func TestInternalErrorsLogCodesWithoutPrivateRequestOrStorageText(t *testing.T) 
 		t.Fatal(err)
 	}
 	defer store.Close()
-	db, err := sql.Open("sqlite3", path)
+	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		t.Fatal(err)
 	}

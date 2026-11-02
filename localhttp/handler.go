@@ -17,7 +17,6 @@ import (
 	"strings"
 	"time"
 
-	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/taskfused/taskfused"
 )
 
@@ -65,9 +64,11 @@ func NewHandlerWithLogger(store *taskfused.Store, authority string, logger *slog
 			if err := fn(w, r.WithContext(ctx)); err != nil {
 				if status := writeError(w, err); status == http.StatusInternalServerError {
 					attrs := []any{"method", r.Method, "route", r.Pattern, "error_type", fmt.Sprintf("%T", err)}
-					var storageErr sqlite3.Error
+					// The SQLite driver reports extended result codes; the
+					// primary code is the low byte.
+					var storageErr interface{ Code() int }
 					if errors.As(err, &storageErr) {
-						attrs = append(attrs, "sqlite_code", int(storageErr.Code), "sqlite_extended_code", int(storageErr.ExtendedCode))
+						attrs = append(attrs, "sqlite_code", storageErr.Code()&0xff, "sqlite_extended_code", storageErr.Code())
 					}
 					logger.ErrorContext(r.Context(), "taskfused request failed", attrs...)
 				}

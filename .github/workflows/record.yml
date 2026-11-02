@@ -1,0 +1,44 @@
+name: record
+
+# Runs scripts/record-tests.sh on GitHub and commits test/results to main.
+# Started by hand (or through the API) when the results should be refreshed,
+# for example before a release. The commit is made with the repository's own
+# token, so it doesn't start the test or release workflows. If any test, demo
+# or smoke check fails, nothing is committed.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: record
+  cancel-in-progress: false
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+      - name: Record
+        run: sh scripts/record-tests.sh
+      - name: Commit the results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add test/results
+          if git diff --cached --quiet; then
+            echo "No change in the results."
+            exit 0
+          fi
+          git commit -m "Record test results for $(git rev-parse --short HEAD)"
+          git push origin HEAD:main

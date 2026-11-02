@@ -262,7 +262,7 @@ func TestClaimAndCompletionRollbackOnEventFailure(t *testing.T) {
 
 func TestMigrationPreservesV1OperationsAndEvents(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "v1.db")
-	db, err := sql.Open("sqlite3", path)
+	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		t.Fatal(err)
 	}

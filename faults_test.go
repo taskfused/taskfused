@@ -14,8 +14,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	sqlite3 "github.com/mattn/go-sqlite3"
 )
 
 func execFaultSQL(t *testing.T, s *Store, query string) {
@@ -179,11 +177,11 @@ func TestMutationRollbackAtStatementAndCommitBoundaries(t *testing.T) {
 				if err == nil {
 					t.Fatal("faulted mutation reported success")
 				}
-				var storageErr sqlite3.Error
-				if !errors.As(err, &storageErr) || storageErr.Code != sqlite3.ErrConstraint {
+				code, ok := sqliteCode(err)
+				if !ok || code&0xff != sqliteConstraint {
 					t.Fatalf("unexpected injected error: %v", err)
 				}
-				if kind == "commit" && storageErr.ExtendedCode != sqlite3.ErrConstraintForeignKey {
+				if kind == "commit" && code != sqliteConstraintForeignKey {
 					t.Fatalf("expected deferred commit failure: %v", err)
 				}
 				if after := storedSnapshot(t, s); after != before {
@@ -214,10 +212,29 @@ func limitPages(t *testing.T, s *Store) func() {
 	execFaultSQL(t, s, fmt.Sprintf("PRAGMA max_page_count=%d", pages))
 	return func() { execFaultSQL(t, s, "PRAGMA max_page_count=1073741824") }
 }
-func expectSQLite(t *testing.T, err error, code sqlite3.ErrNo) {
+
+// SQLite primary result codes and the one extended code the tests check.
+const (
+	sqliteBusy                 = 5
+	sqliteReadonly             = 8
+	sqliteFull                 = 13
+	sqliteConstraint           = 19
+	sqliteConstraintForeignKey = 787
+)
+
+// sqliteCode returns the driver's (extended) SQLite result code.
+func sqliteCode(err error) (int, bool) {
+	var se interface{ Code() int }
+	if !errors.As(err, &se) {
+		return 0, false
+	}
+	return se.Code(), true
+}
+
+func expectSQLite(t *testing.T, err error, code int) {
 	t.Helper()
-	var se sqlite3.Error
-	if !errors.As(err, &se) || se.Code != code {
+	got, ok := sqliteCode(err)
+	if !ok || got&0xff != code {
 		t.Fatalf("expected SQLite code %d, got %v", code, err)
 	}
 }
@@ -242,7 +259,7 @@ func TestSQLiteFullRollsBackSubmissionAndResult(t *testing.T) {
 			}
 			restore := limitPages(t, s)
 			before := storedSnapshot(t, s)
-			expectSQLite(t, action(), sqlite3.ErrFull)
+			expectSQLite(t, action(), sqliteFull)
 			if storedSnapshot(t, s) != before {
 				t.Fatal("SQLITE_FULL left partial records/result")
 			}
@@ -261,12 +278,9 @@ func TestReadOnlySQLiteRejectsWritesWithoutLosingReadableWork(t *testing.T) {
 	op := submitTest(t, writer, request())
 	writer.Close()
 	u := url.URL{Scheme: "file", Path: path}
-	q := u.Query()
-	q.Set("mode", "ro")
-	q.Set("_foreign_keys", "on")
-	q.Set("_txlock", "immediate")
-	u.RawQuery = q.Encode()
-	db, err := sql.Open("sqlite3", u.String())
+	u.Path = uriPath(path)
+	u.RawQuery = url.Values{"mode": {"ro"}, "_pragma": {"foreign_keys(ON)"}, "_txlock": {"immediate"}}.Encode()
+	db, err := sql.Open("sqlite", u.String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,7 +291,7 @@ func TestReadOnlySQLiteRejectsWritesWithoutLosingReadableWork(t *testing.T) {
 	r := request()
 	r.Key = "cannot-write"
 	_, err = readOnly.Submit(ctx, r)
-	expectSQLite(t, err, sqlite3.ErrReadonly)
+	expectSQLite(t, err, sqliteReadonly)
 	if storedSnapshot(t, readOnly) != before {
 		t.Fatal("read-only mutation changed data")
 	}
@@ -301,7 +315,7 @@ func TestWriterContentionReturnsBusyAndCanBeRetried(t *testing.T) {
 	}
 	defer holder.Rollback()
 	_, err = other.Submit(ctx, request())
-	expectSQLite(t, err, sqlite3.ErrBusy)
+	expectSQLite(t, err, sqliteBusy)
 	if storedSnapshot(t, other) != before {
 		t.Fatal("busy admission wrote records")
 	}
@@ -404,8 +418,7 @@ func TestRenewalStorageFailureCancelsHandlerAndAllowsExpiryRecovery(t *testing.T
 	if !worked || err == nil || !observed {
 		t.Fatalf("renewal failure not propagated cooperatively: %v %v observed=%v", worked, err, observed)
 	}
-	var se sqlite3.Error
-	if !errors.As(err, &se) {
+	if _, ok := sqliteCode(err); !ok {
 		t.Fatalf("renewal error was replaced: %v", err)
 	}
 	got := getTest(t, s, op)

@@ -7,7 +7,7 @@
 
 BIN_DIR holds taskfused, taskfused-worker and taskfused-demo (with .exe on
 Windows). Each must report the expected version (taskfused.Version from the
-checkout unless given) and a CGO build. Then, in a private temporary
+checkout unless given) and a pure-Go (CGO_ENABLED=0) build of the checkout's schema. Then, in a private temporary
 directory, it submits and joins one operation, runs it with the real worker,
 waits for the echoed result, sets admission limits, prunes the result,
 checks the limit rejects a new submission, serves the loopback HTTP API and
@@ -74,6 +74,13 @@ def source_version():
     return found[0]
 
 
+def source_schema():
+    text = (ROOT / "taskfused.go").read_text(encoding="utf-8")
+    found = re.findall(r"^const SchemaVersion = ([0-9]+)$", text, re.M)
+    require(len(found) == 1, "taskfused.go has no single SchemaVersion constant")
+    return int(found[0])
+
+
 def smoke(bin_dir, version):
     suffix = ".exe" if WINDOWS else ""
     binaries = {name: Path(bin_dir).resolve() / (name + suffix) for name in NAMES}
@@ -81,7 +88,8 @@ def smoke(bin_dir, version):
         require(path.is_file(), f"missing {path}")
         info = json.loads(run([path, "version" if name == "taskfused" else "-version"]))
         require(info["version"] == version, f"{name} reports version {info['version']}, expected {version}")
-        require(info["cgo"] and info["schema"] == 5, f"{name} is not a CGO schema-5 build: {info}")
+        schema = source_schema()
+        require(not info["cgo"] and info["schema"] == schema, f"{name} is not a pure-Go schema-{schema} build: {info}")
         print(f"{name}: {info['version']} {info['os']}/{info['arch']} revision {info['revision'][:12]}", flush=True)
     cli = binaries["taskfused"]
     with tempfile.TemporaryDirectory(prefix="taskfused-smoke-") as temporary:

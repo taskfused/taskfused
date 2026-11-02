@@ -184,7 +184,7 @@ func TestValidationAndCanceledContext(t *testing.T) {
 func TestRefuseUnrelatedOrFutureSchema(t *testing.T) {
 	for _, setup := range []string{"CREATE TABLE unrelated (id INTEGER)", "PRAGMA user_version=99", "PRAGMA user_version=1"} {
 		path := filepath.Join(t.TempDir(), "foreign.db")
-		db, err := sql.Open("sqlite3", path)
+		db, err := sql.Open("sqlite", path)
 		if err != nil {
 			t.Fatal(err)
 		}
