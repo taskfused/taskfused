@@ -111,3 +111,22 @@ func TestMetricsCountsLeaseExpiries(t *testing.T) {
 		t.Fatalf("running %d", got)
 	}
 }
+
+func TestLabelValueKeepsNamespacesDistinct(t *testing.T) {
+	cases := map[string]string{
+		"plain":       "plain",
+		"a\"b\\c\nd":  `a\"b\\c\nd`,
+		"50%":         "50%25",
+		"bad\xffbyte": "bad%FFbyte",
+		"bad\xfebyte": "bad%FEbyte",
+		"ünïcode":     "ünïcode",
+	}
+	for in, want := range cases {
+		if got := labelValue(in); got != want {
+			t.Fatalf("%q: got %q want %q", in, got, want)
+		}
+	}
+	if labelValue("x\xff") == labelValue("x\xfe") || labelValue("x%FF") == labelValue("x\xff") {
+		t.Fatal("distinct namespaces share a label")
+	}
+}

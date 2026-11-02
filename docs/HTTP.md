@@ -36,7 +36,8 @@ a gauge, since identity expiry deletes rows:
 | taskfused_limit_max_operations, taskfused_limit_max_active | namespace | Admission limits; 0 is unlimited |
 | taskfused_identity_retention_seconds | namespace | Identity retention; 0 keeps identities forever |
 
-Every namespace with operations or limits appears, with zeros for empty states, so
+Namespace label values are UTF-8; a byte that isn't valid UTF-8 is written as
+%XX and a literal % as %25. Every namespace with operations or limits appears, with zeros for empty states, so
 there is one series per namespace and state; many namespaces mean many series.
 A scrape counts every operation and attempt row, so its cost grows with what the
 file keeps. The same Host, Origin and Fetch Metadata checks apply as on every

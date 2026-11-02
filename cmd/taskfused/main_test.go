@@ -210,7 +210,10 @@ func TestStorageCLI(t *testing.T) {
 	if _, err := invoke("set-limits", "-max-operations", "1"); err == nil {
 		t.Fatal("omitted active limit accepted")
 	}
-	if _, err := invoke("set-limits", "-max-operations", "1", "-max-active", "1"); err != nil {
+	if _, err := invoke("set-limits", "-max-operations", "1", "-max-active", "1"); err == nil {
+		t.Fatal("omitted identity retention accepted")
+	}
+	if _, err := invoke("set-limits", "-max-operations", "1", "-max-active", "1", "-identity-retention", "0"); err != nil {
 		t.Fatal(err)
 	}
 	data, err := invoke("submit", "-handler", "echo", "-version", "v1", "-key", "a", "-input", "hello", "-join")
@@ -261,7 +264,7 @@ func TestStorageCLI(t *testing.T) {
 	if err := json.Unmarshal(data, &op); err != nil || !op.ResultPruned || op.State != taskfused.StateSucceeded {
 		t.Fatalf("wait: %s %v", data, err)
 	}
-	for _, args := range [][]string{{"prune-results"}, {"prune-results", "-before", "invalid"}, {"prune-results", "-before", cutoff, "-limit", "201"}, {"set-limits", "-max-operations", "-1", "-max-active", "0"}} {
+	for _, args := range [][]string{{"prune-results"}, {"prune-results", "-before", "invalid"}, {"prune-results", "-before", cutoff, "-limit", "201"}, {"set-limits", "-max-operations", "-1", "-max-active", "0", "-identity-retention", "0"}, {"set-limits", "-max-operations", "0", "-max-active", "0", "-identity-retention", "-1s"}, {"expire-identities", "-limit", "201"}, {"expire-identities", "-limit", "0"}} {
 		if _, err := invoke(args...); err == nil {
 			t.Fatalf("accepted %v", args)
 		}

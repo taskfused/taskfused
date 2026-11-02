@@ -325,3 +325,104 @@ func TestMigrationV5ToV6FilesFinishedWork(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// The paths not in everyState: a lease expiring with no budget left, a trip
+// through retry_wait, and a cancel while running.
+func TestExpiryIndexFollowsEveryPath(t *testing.T) {
+	ctx := context.Background()
+	s := openTest(t, filepath.Join(t.TempDir(), "store.db"))
+	clock := newClock()
+	s.now = clock.now
+	filed := func(op Operation) bool {
+		return countRows(t, s, "SELECT count(*) FROM identity_expiry WHERE operation_id=?", op.ID) == 1
+	}
+
+	// Lease expiry with the budget spent: Claim marks it failed.
+	r := keyed("abandoned")
+	r.MaxAttempts = 1
+	abandoned := submitTest(t, s, r)
+	claimFor(t, s, r)
+	clock.advance(2 * time.Minute)
+	if _, err := s.Claim(ctx, ClaimRequest{Namespace: r.Namespace, Handler: r.Handler, Version: r.Version, LeaseDuration: time.Minute}); !errors.Is(err, ErrNoWork) {
+		t.Fatalf("reclaim: %v", err)
+	}
+	if got := getTest(t, s, abandoned); got.State != StateFailed || !filed(got) {
+		t.Fatalf("abandoned: %s filed=%v", got.State, filed(got))
+	}
+
+	// retry_wait is not finished; the final failure is.
+	r = keyed("flaky")
+	r.MaxAttempts = 2
+	r.RetryDelay = time.Second
+	flaky := submitTest(t, s, r)
+	if err := s.Fail(ctx, claimFor(t, s, r), "first"); err != nil {
+		t.Fatal(err)
+	}
+	if got := getTest(t, s, flaky); got.State != StateRetryWait || filed(got) {
+		t.Fatalf("retry_wait: %s filed=%v", got.State, filed(got))
+	}
+	clock.advance(time.Minute)
+	if err := s.Fail(ctx, claimFor(t, s, r), "second"); err != nil {
+		t.Fatal(err)
+	}
+	if got := getTest(t, s, flaky); got.State != StateFailed || !filed(got) {
+		t.Fatalf("final failure: %s filed=%v", got.State, filed(got))
+	}
+
+	// Canceled while running: filed, but kept while the worker's lease runs,
+	// so the worker still learns it was canceled.
+	r = keyed("busy")
+	busy := submitTest(t, s, r)
+	c := claimFor(t, s, r) // one-minute lease
+	if _, err := s.Cancel(ctx, busy.Namespace, busy.ID); err != nil {
+		t.Fatal(err)
+	}
+	if !filed(busy) {
+		t.Fatal("canceled running operation not filed")
+	}
+	if err := s.SetLimits(ctx, r.Namespace, Limits{IdentityRetention: time.Nanosecond}); err != nil {
+		t.Fatal(err)
+	}
+	clock.advance(time.Second)
+	res, err := s.ExpireIdentities(ctx, ExpireRequest{Namespace: r.Namespace, Limit: MaxExpireBatch})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range res.OperationIDs {
+		if id == busy.ID {
+			t.Fatal("expired while a worker still held its lease")
+		}
+	}
+	if err := s.Complete(ctx, c, []byte("late")); !errors.Is(err, ErrOperationCanceled) {
+		t.Fatalf("worker after cancel: %v", err)
+	}
+	clock.advance(2 * time.Minute)
+	res, err = s.ExpireIdentities(ctx, ExpireRequest{Namespace: r.Namespace, Limit: MaxExpireBatch})
+	if err != nil || len(res.OperationIDs) != 1 || res.OperationIDs[0] != busy.ID {
+		t.Fatalf("after the lease: %+v %v", res, err)
+	}
+}
+
+// The driver reads a zero-length BLOB as nil; reads still give an empty value.
+func TestEmptyInputAndResultReadBackEmpty(t *testing.T) {
+	ctx := context.Background()
+	s := openTest(t, filepath.Join(t.TempDir(), "store.db"))
+	r := keyed("empty")
+	r.Input = nil
+	op := submitTest(t, s, r)
+	got := getTest(t, s, op)
+	if got.Input == nil || len(got.Input) != 0 {
+		t.Fatalf("input %#v", got.Input)
+	}
+	if err := s.Complete(ctx, claimFor(t, s, r), nil); err != nil {
+		t.Fatal(err)
+	}
+	got = getTest(t, s, op)
+	if got.State != StateSucceeded || got.Result == nil || len(got.Result) != 0 {
+		t.Fatalf("result %#v state %s", got.Result, got.State)
+	}
+	joined, err := s.Submit(ctx, r)
+	if err != nil || !joined.Joined || joined.Operation.Input == nil || joined.Operation.Result == nil {
+		t.Fatalf("join: %+v %v", joined, err)
+	}
+}

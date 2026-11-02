@@ -34,9 +34,9 @@ while IFS='=' read -r mod dir; do
 		echo
 		echo "$(basename "$f"):"
 		echo
-		echo '```'
+		echo '~~~~~~~~'
 		cat "$f"
-		echo '```'
+		echo '~~~~~~~~'
 	done
 done <<< "$mods"
 
@@ -45,6 +45,6 @@ echo "## Go $(go env GOVERSION | sed 's/^go//')"
 echo
 echo "The Go runtime and standard library, compiled into every Go binary."
 echo
-echo '```'
+echo '~~~~~~~~'
 cat "$(go env GOROOT)/LICENSE"
-echo '```'
+echo '~~~~~~~~'

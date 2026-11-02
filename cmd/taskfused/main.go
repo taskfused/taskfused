@@ -70,7 +70,7 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	} else if args[0] == "set-limits" {
 		fs.Int64Var(&maxOperations, "max-operations", 0, "maximum retained identities; zero unlimited (replaces prior policy)")
 		fs.Int64Var(&maxActive, "max-active", 0, "maximum queued/running/retry_wait operations; zero unlimited")
-		fs.DurationVar(&identityRetention, "identity-retention", 0, "how long finished operations keep their identity (e.g. 720h); zero or omitted keeps them forever (replaces prior policy)")
+		fs.DurationVar(&identityRetention, "identity-retention", 0, "how long finished operations keep their identity (e.g. 720h); 0 keeps them forever (replaces prior policy)")
 	} else if args[0] == "prune-results" {
 		fs.StringVar(&before, "before", "", "required exclusive completion cutoff (RFC3339)")
 		fs.IntVar(&limit, "limit", 50, "maximum succeeded results to remove (1–200); irreversible")
@@ -118,8 +118,8 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if args[0] == "set-limits" {
 		supplied := map[string]bool{}
 		fs.Visit(func(f *flag.Flag) { supplied[f.Name] = true })
-		if !supplied["max-operations"] || !supplied["max-active"] {
-			return fmt.Errorf("-max-operations and -max-active are both required; zero means unlimited")
+		if !supplied["max-operations"] || !supplied["max-active"] || !supplied["identity-retention"] {
+			return fmt.Errorf("-max-operations, -max-active and -identity-retention are all required, since set-limits replaces the whole policy; 0 means unlimited or forever")
 		}
 		if maxOperations < 0 || maxActive < 0 || identityRetention < 0 {
 			return fmt.Errorf("limits must be nonnegative")

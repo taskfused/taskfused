@@ -291,6 +291,15 @@ func scanOperation(row scanner) (Operation, error) {
 		}
 		op.CompletedAt = &t
 	}
+	// The SQLite driver reads a zero-length BLOB as nil. Input is never NULL
+	// and a kept successful result is a value, so both read back as empty,
+	// not nil (JSON "" rather than null for input).
+	if op.Input == nil {
+		op.Input = []byte{}
+	}
+	if op.Result == nil && op.State == StateSucceeded && !op.ResultPruned {
+		op.Result = []byte{}
+	}
 	op.RetryEligible = op.State == StateFailed && op.AttemptCount < MaxLifetimeAttempts
 	return op, nil
 }

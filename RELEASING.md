@@ -19,6 +19,10 @@ and the next green run picks it up.
 Pushing without raising the version is fine: the release workflow sees the tag
 already exists and stops quietly.
 
+Record the test results (the `record` workflow, which commits to main without
+starting CI) before raising the version, so the version commit is the last one
+on main and its test run decides the release.
+
 ## What it does, step by step
 
 [.github/workflows/release.yml](.github/workflows/release.yml) starts when a

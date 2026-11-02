@@ -113,7 +113,7 @@ def smoke(bin_dir, version):
             finally:
                 stop(worker, "taskfused-worker")
         print("submit, join, worker and wait: passed", flush=True)
-        command("set-limits", "-max-operations", "1", "-max-active", "1")
+        command("set-limits", "-max-operations", "1", "-max-active", "1", "-identity-retention", "0")
         command("prune-results", "-before", "9999-12-31T23:59:59Z", "-limit", "1")
         outcome = command("get", "-id", op_id)
         require(outcome["state"] == "succeeded" and outcome["result_pruned"], "the result was not marked pruned")

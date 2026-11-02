@@ -11,13 +11,13 @@ application controls when to prune and who may change policy.
 
 ```sh
 go run ./cmd/taskfused set-limits -db demo.db -namespace demo \
-  -max-operations 10000 -max-active 100
+  -max-operations 10000 -max-active 100 -identity-retention 0
 go run ./cmd/taskfused usage -db demo.db -namespace demo
 ```
 
-Both limit flags are required because set-limits replaces the complete policy.
-Use explicit zeros to remove limits. `-identity-retention` is optional and part of
-the same policy, so leaving it out sets it to zero (keep identities forever). The library equivalents are SetLimits with
+All three flags are required because set-limits replaces the complete policy.
+Use explicit zeros to remove limits; `-identity-retention 0` keeps identities
+forever. The library equivalents are SetLimits with
 Limits and Usage. Policies persist across close/reopen and apply to every Store
 and process using this database. Namespace labels are not authentication.
 
@@ -120,12 +120,19 @@ Attempts and Events for the old ID return ErrNotFound. Joining and replay
 protection therefore last only as long as the retention; set it longer than any
 client might retry. Queued, running and retry_wait work is never expired, and a
 failed operation reopened by an operator retry leaves the expiry index until it
-finishes again, when its new completion time counts. Expired operations stop
+finishes again, when its new completion time counts. An operation canceled while
+running is kept until its last attempt's lease has passed, so the worker still
+holding it gets ErrOperationCanceled from Renew, Complete or Fail rather than
+ErrLeaseLost. Get, Wait and joins for an operation only return its outcome while
+it is kept: after expiry they return ErrNotFound (or start new work). ExpireDue
+carries on with the other namespaces when one fails and returns all the errors. Expired operations stop
 counting toward MaxOperations.
 
 The index is kept by SQLite triggers on every state change, so no code path that
 finishes or reopens work can miss it. It stores completion times to the
-millisecond, so the cutoff is precise to a millisecond. Like pruning, expiry frees
+millisecond, so the cutoff is precise to a millisecond. A finished operation
+with no completion time (none is written today) or an unparsable one is never
+expired. Like pruning, expiry frees
 SQLite pages for reuse but does not shrink the file or securely erase bytes.
 
 ## Inspect usage and upgrade

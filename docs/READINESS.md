@@ -56,10 +56,11 @@ not a recovery SLA or fleet capacity estimate. Browser rendering has not been
 visually verified in this environment because no browser executable is installed.
 
 A user must supply effect-destination idempotency where repeated external actions
-matter. Identity retention remains permanent; result pruning does not free identity
-slots, erase old bytes securely or guarantee file shrinkage. No multi-host backend,
-workflow graph, arbitrary command runner, automatic fusion, remote hosting or
-metrics/audit service is required to complete the scoped local prototype.
+matter. Identities are kept forever unless a namespace sets an identity retention; result
+pruning does not free identity slots, and neither pruning nor expiry erases old
+bytes securely or shrinks the file. No multi-host backend, workflow graph,
+arbitrary command runner, automatic fusion, remote hosting or audit service is
+required to complete the scoped local prototype.
 
 ## What comes next
 

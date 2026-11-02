@@ -136,7 +136,7 @@ See [HTTP routes, examples, bounds and shutdown behavior](docs/HTTP.md).
 ## Capacity and result retention
 
 ```sh
-./taskfused set-limits -db demo.db -namespace demo -max-operations 10000 -max-active 100
+./taskfused set-limits -db demo.db -namespace demo -max-operations 10000 -max-active 100 -identity-retention 0
 ./taskfused usage -db demo.db -namespace demo
 ./taskfused prune-results -db demo.db -namespace demo -before 2026-10-01T00:00:00Z -limit 50
 ```
@@ -162,7 +162,9 @@ so joining and replay protection last only as long as the retention. Queued,
 running and retry_wait work is never touched. `serve` does this every minute for
 every namespace with a retention (`-expire-every`, `0` turns it off); an
 embedding calls `ExpireIdentities` or `ExpireDue`. `set-limits` replaces the
-whole policy, so leaving `-identity-retention` out turns expiry off.
+whole policy, so all three flags are required (`0` means unlimited or forever).
+A finished operation whose worker still holds an unexpired lease (canceled while
+running) is kept until that lease ends, so the worker still hears it was canceled.
 See [storage guarantees, upgrade procedure and limitations](docs/STORAGE.md).
 
 ## Embed a worker

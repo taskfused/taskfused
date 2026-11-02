@@ -233,7 +233,10 @@ func (s *Store) ExpireIdentities(ctx context.Context, r ExpireRequest) (ExpireRe
 	if cutoff.Year() < 1 {
 		return result, nil
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT e.operation_id FROM identity_expiry e JOIN operations o ON o.id=e.operation_id WHERE e.namespace=? AND e.terminal_at<? AND o.state IN ('succeeded','failed','canceled') ORDER BY e.terminal_at,e.operation_id LIMIT ?`, r.Namespace, cutoff.Format(expiryTimeFormat), r.Limit)
+	// An operation canceled while running may still have a worker holding an
+	// unexpired lease; it keeps the record until that lease ends, so the
+	// worker's Renew, Complete or Fail still reports ErrOperationCanceled.
+	rows, err := tx.QueryContext(ctx, `SELECT e.operation_id FROM identity_expiry e JOIN operations o ON o.id=e.operation_id WHERE e.namespace=? AND e.terminal_at<? AND o.state IN ('succeeded','failed','canceled') AND NOT EXISTS (SELECT 1 FROM attempts a WHERE a.operation_id=o.id AND a.lease_until_ns>?) ORDER BY e.terminal_at,e.operation_id LIMIT ?`, r.Namespace, cutoff.Format(expiryTimeFormat), s.now().UTC().UnixNano(), r.Limit)
 	if err != nil {
 		return ExpireResult{}, err
 	}
@@ -292,12 +295,19 @@ func (s *Store) ExpireDue(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	// A namespace that fails doesn't stop the others; its error is returned
+	// with the rest.
 	removed := 0
+	var errs []error
 	for _, ns := range namespaces {
 		for {
+			if err := ctx.Err(); err != nil {
+				return removed, errors.Join(append(errs, err)...)
+			}
 			r, err := s.ExpireIdentities(ctx, ExpireRequest{Namespace: ns, Limit: MaxExpireBatch})
 			if err != nil {
-				return removed, err
+				errs = append(errs, fmt.Errorf("namespace %q: %w", ns, err))
+				break
 			}
 			removed += len(r.OperationIDs)
 			if len(r.OperationIDs) < MaxExpireBatch {
@@ -305,5 +315,5 @@ func (s *Store) ExpireDue(ctx context.Context) (int, error) {
 			}
 		}
 	}
-	return removed, nil
+	return removed, errors.Join(errs...)
 }

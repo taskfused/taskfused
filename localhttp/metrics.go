@@ -8,15 +8,36 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/taskfused/taskfused"
 )
 
 // labelValue escapes a Prometheus label value. Namespaces are any non-NUL
-// bytes; invalid UTF-8 is replaced, since the text format requires UTF-8.
+// bytes, but the text format requires UTF-8, so each byte of an invalid
+// sequence is written as %XX, and a literal % as %25; distinct namespaces stay
+// distinct labels.
 func labelValue(s string) string {
-	s = strings.ToValidUTF8(s, "�")
-	return strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`).Replace(s)
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		r, size := utf8.DecodeRuneInString(s[i:])
+		switch {
+		case r == utf8.RuneError && size <= 1:
+			fmt.Fprintf(&b, "%%%02X", s[i])
+		case r == '%':
+			b.WriteString("%25")
+		case r == '\\':
+			b.WriteString(`\\`)
+		case r == '"':
+			b.WriteString(`\"`)
+		case r == '\n':
+			b.WriteString(`\n`)
+		default:
+			b.WriteString(s[i : i+size])
+		}
+		i += size
+	}
+	return b.String()
 }
 
 // metricsPage writes Store.Metrics in the Prometheus text format (0.0.4).
