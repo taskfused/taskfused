@@ -45,6 +45,47 @@ Images are drawn into static/images.
 Every number comes from `test/results/`; when a recording changes a number, update
 the site too.
 
-## Next
+## In progress: TaskFused 0.2 (softdev-plan item 30, approved by YK 2026-11-02)
 
-Nothing is decided. Agree it with the owner before it goes here.
+What and why: the mattn/go-sqlite3 driver needs cgo and a C compiler, which is
+why Windows only gets a smoke check and the release needs cross C toolchains;
+every identity is kept forever, so a long-running service's file and its
+max_operations count only grow; and there is nothing to scrape for queue depth
+or lease expiries.
+
+Design decisions:
+- Phase A, pure-Go SQLite: modernc.org/sqlite v1.60.1 (the version RollupDB
+  ships), `CGO_ENABLED=0` everywhere. DSN: `_pragma` busy_timeout(5000),
+  journal_mode(WAL), synchronous(FULL), foreign_keys(ON) and `_txlock=immediate`.
+  Storage error codes are read through `Code()` (extended codes; the primary
+  code is the low byte). CI runs the full suite (not just the smoke check) on
+  Windows. Release and record scripts drop the C cross toolchains and musl-gcc.
+  go.mod and README to Go 1.26.
+- Phase B1, identity expiry: `Limits.IdentityRetention` (per namespace, zero
+  keeps identities forever, as now). Schema v6 adds the column and an
+  `identity_expiry` table filled by triggers whenever an operation becomes or
+  stops being terminal (succeeded, failed, canceled), so no state change can
+  miss it. `ExpireIdentities(ctx, ExpireRequest{Namespace, Limit})` deletes, in
+  one atomic batch of up to 200, terminal operations whose completion is older
+  than now minus the retention, with their attempts, events, retry actions and
+  retention rows. After that the same key is new work. Never touches queued,
+  running or retry_wait work. CLI: `set-limits --identity-retention`,
+  `expire-identities`; `serve --expire-every 1m` drains every namespace with a
+  retention (0 turns it off).
+- Phase B2, metrics: `GET /metrics` on the loopback server, Prometheus text
+  format, read from one database snapshot: operations by namespace and state,
+  attempts by namespace and state (`expired` is a lease expiry), the oldest
+  queued operation's age, limits and retention, build info. `Store.Metrics`
+  gives the same to an embedding. Values are gauges, since expiry deletes rows.
+- Version 0.2.0.
+
+Steps:
+1. [ ] Phase A: driver swap, error codes, go.mod 1.26, Windows full-suite CI job,
+   release and record scripts without cgo.
+2. [ ] B1 identity expiry, schema v6, CLI and serve, tests.
+3. [ ] B2 metrics endpoint, tests.
+4. [ ] Docs (README, CONTRACT, STORAGE, HTTP, READINESS, COMPATIBILITY).
+5. [ ] Independent review (at most two rounds), fixes, fresh test/results.
+6. [ ] 0.2.0 released by the workflow, downloads checked.
+7. [ ] taskfused.com post with its own SVG, pages; softdevstudio.com note;
+   softdev-plan log row.
