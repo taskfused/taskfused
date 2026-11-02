@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-10-17T20:44:20.712015444Z",
-  "go": "go1.24.7",
+  "generated_at": "2026-11-02T12:05:34.240551565Z",
+  "go": "go1.26.10",
   "os": "linux",
   "arch": "amd64",
   "build_settings": {
     "CGO_ENABLED": "1",
     "GOAMD64": "v1",
     "vcs.modified": "true",
-    "vcs.revision": "35c7363b0dc4e194f8378f3273435ac798029194"
+    "vcs.revision": "f767ea6a7d6960689bac5af0a2cc970b4b36c437"
   },
   "listener_family": "IPv4",
   "functional_over_http": {
@@ -20,12 +20,12 @@
       "attempts": 1,
       "wait_elapsed_including_demo_delay": {
         "samples": 99,
-        "min_ms": 292.355581,
-        "p50_ms": 302.041234,
-        "p95_ms": 306.135664,
-        "p99_ms": 306.499138,
-        "max_ms": 306.499138,
-        "mean_ms": 301.25266924242425
+        "min_ms": 300.979696,
+        "p50_ms": 307.613643,
+        "p95_ms": 313.798737,
+        "p99_ms": 314.60177,
+        "max_ms": 314.60177,
+        "mean_ms": 307.59268094949493
       }
     },
     "crash": {
@@ -35,12 +35,12 @@
       "new_token": 2,
       "same_operation": true,
       "stale_commit_rejected": true,
-      "kill_to_observed_success_ms": 1101.773143
+      "kill_to_observed_success_ms": 1102.310758
     },
     "cancellation": {
       "state": "canceled",
       "observed_by_handler": true,
-      "cancel_to_handler_observation_ms": 334.503907,
+      "cancel_to_handler_observation_ms": 334.645551,
       "survivor_succeeded": true
     },
     "retry": {
@@ -65,7 +65,8 @@
     "before": {
       "limits": {
         "max_operations": 0,
-        "max_active": 0
+        "max_active": 0,
+        "identity_retention": 0
       },
       "operations": 6,
       "active": 0,
@@ -79,7 +80,8 @@
     "after": {
       "limits": {
         "max_operations": 0,
-        "max_active": 0
+        "max_active": 0,
+        "identity_retention": 0
       },
       "operations": 6,
       "active": 0,

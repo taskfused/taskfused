@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-10-17T20:44:18.521929314Z",
+  "generated_at": "2026-11-02T12:05:32.067849905Z",
   "environment": {
-    "go": "go1.24.7",
+    "go": "go1.26.10",
     "os": "linux",
     "arch": "amd64",
-    "logical_cpus": 2,
-    "gomaxprocs": 2,
-    "sqlite": "3.50.4",
+    "logical_cpus": 4,
+    "gomaxprocs": 4,
+    "sqlite": "3.53.4",
     "storage": "os.MkdirTemp; underlying physical storage not characterized",
     "build_settings": {
       "CGO_ENABLED": "1",
       "GOAMD64": "v1",
       "vcs.modified": "true",
-      "vcs.revision": "35c7363b0dc4e194f8378f3273435ac798029194"
+      "vcs.revision": "f767ea6a7d6960689bac5af0a2cc970b4b36c437"
     }
   },
   "functional": {
@@ -25,12 +25,12 @@
       "attempts": 1,
       "wait_elapsed_including_demo_delay": {
         "samples": 99,
-        "min_ms": 298.613414,
-        "p50_ms": 302.775408,
-        "p95_ms": 305.676134,
-        "p99_ms": 306.13263,
-        "max_ms": 306.13263,
-        "mean_ms": 302.7306050808081
+        "min_ms": 300.476643,
+        "p50_ms": 303.263144,
+        "p95_ms": 305.527008,
+        "p99_ms": 305.638282,
+        "max_ms": 305.638282,
+        "mean_ms": 303.2443595050505
       }
     },
     "crash": {
@@ -40,12 +40,12 @@
       "new_token": 2,
       "same_operation": true,
       "stale_commit_rejected": true,
-      "kill_to_observed_success_ms": 1102.002205
+      "kill_to_observed_success_ms": 1101.840811
     },
     "cancellation": {
       "state": "canceled",
       "observed_by_handler": true,
-      "cancel_to_handler_observation_ms": 334.390443,
+      "cancel_to_handler_observation_ms": 334.214931,
       "survivor_succeeded": true
     },
     "retry": {
@@ -71,37 +71,37 @@
     "result_bytes_per_operation": 128,
     "mode": "sequential submission, then sequential RunOnce with a trivial echo handler; WAL/FULL",
     "empty_closed": {
-      "main_bytes": 86016,
+      "main_bytes": 102400,
       "wal_bytes": 0,
       "shm_bytes": 0,
-      "total_bytes": 86016
+      "total_bytes": 102400
     },
     "queued_live": {
-      "main_bytes": 708608,
-      "wal_bytes": 4157112,
+      "main_bytes": 729088,
+      "wal_bytes": 4144752,
       "shm_bytes": 32768,
-      "total_bytes": 4898488
+      "total_bytes": 4906608
     },
     "queued_closed": {
-      "main_bytes": 712704,
+      "main_bytes": 729088,
       "wal_bytes": 0,
       "shm_bytes": 0,
-      "total_bytes": 712704
+      "total_bytes": 729088
     },
     "completed_live": {
-      "main_bytes": 1683456,
-      "wal_bytes": 4169472,
+      "main_bytes": 1933312,
+      "wal_bytes": 4190072,
       "shm_bytes": 32768,
-      "total_bytes": 5885696
+      "total_bytes": 6156152
     },
     "completed_closed": {
-      "main_bytes": 1724416,
+      "main_bytes": 1937408,
       "wal_bytes": 0,
       "shm_bytes": 0,
-      "total_bytes": 1724416
+      "total_bytes": 1937408
     },
-    "completed_growth_bytes": 1638400,
-    "amortized_completed_growth_per_operation_bytes": 1638.4,
+    "completed_growth_bytes": 1835008,
+    "amortized_completed_growth_per_operation_bytes": 1835.008,
     "records": {
       "operations": 1000,
       "attempts": 1000,
@@ -109,54 +109,54 @@
     },
     "submission": {
       "samples": 1000,
-      "min_ms": 0.232803,
-      "p50_ms": 0.557951,
-      "p95_ms": 0.867024,
-      "p99_ms": 1.601749,
-      "max_ms": 7.11396,
-      "mean_ms": 0.588647369
+      "min_ms": 0.271782,
+      "p50_ms": 0.40595,
+      "p95_ms": 0.625725,
+      "p99_ms": 1.138333,
+      "max_ms": 1.569581,
+      "mean_ms": 0.42952838200000004
     },
-    "submission_phase_ms": 588.802561,
+    "submission_phase_ms": 429.647407,
     "run_once": {
       "samples": 1000,
-      "min_ms": 0.732381,
-      "p50_ms": 1.43739,
-      "p95_ms": 2.25402,
-      "p99_ms": 3.749572,
-      "max_ms": 6.01268,
-      "mean_ms": 1.503713151
+      "min_ms": 1.447441,
+      "p50_ms": 1.732012,
+      "p95_ms": 2.360642,
+      "p99_ms": 3.438525,
+      "max_ms": 4.796424,
+      "mean_ms": 1.809139978
     },
-    "execution_phase_ms": 1503.917123
+    "execution_phase_ms": 1809.283658
   },
   "waiting_samples": [
     {
       "repetition": 1,
       "waiters": 0,
       "requested_duration_ms": 1000,
-      "actual_wall_ms": 1000.218161,
+      "actual_wall_ms": 1000.105744,
       "process_cpu": {
         "available": true,
-        "user_ms": 0.083,
-        "system_ms": 0.083,
-        "total_ms": 0.166,
-        "percent_of_one_core": 0.01659637931729176
+        "user_ms": 0.069,
+        "system_ms": 0.052,
+        "total_ms": 0.121,
+        "percent_of_one_core": 0.012098720632885395
       },
-      "go_allocated_bytes": 1216,
-      "go_allocations": 12,
+      "go_allocated_bytes": 768,
+      "go_allocations": 11,
       "gc_count": 0,
       "configured_poll_interval_ms": 100,
       "waits_finished": 0,
       "before_files": {
         "main_bytes": 4096,
-        "wal_bytes": 115392,
+        "wal_bytes": 131872,
         "shm_bytes": 32768,
-        "total_bytes": 152256
+        "total_bytes": 168736
       },
       "after_files": {
         "main_bytes": 4096,
-        "wal_bytes": 115392,
+        "wal_bytes": 131872,
         "shm_bytes": 32768,
-        "total_bytes": 152256
+        "total_bytes": 168736
       },
       "file_growth_bytes": 0
     },
@@ -164,30 +164,30 @@
       "repetition": 2,
       "waiters": 0,
       "requested_duration_ms": 1000,
-      "actual_wall_ms": 1000.188872,
+      "actual_wall_ms": 1000.203021,
       "process_cpu": {
         "available": true,
-        "user_ms": 0.06,
-        "system_ms": 0.119,
-        "total_ms": 0.179,
-        "percent_of_one_core": 0.01789661982961954
+        "user_ms": 0.123,
+        "system_ms": 0.07,
+        "total_ms": 0.193,
+        "percent_of_one_core": 0.01929608249003679
       },
-      "go_allocated_bytes": 768,
+      "go_allocated_bytes": 1232,
       "go_allocations": 11,
       "gc_count": 0,
       "configured_poll_interval_ms": 100,
       "waits_finished": 0,
       "before_files": {
         "main_bytes": 4096,
-        "wal_bytes": 115392,
+        "wal_bytes": 131872,
         "shm_bytes": 32768,
-        "total_bytes": 152256
+        "total_bytes": 168736
       },
       "after_files": {
         "main_bytes": 4096,
-        "wal_bytes": 115392,
+        "wal_bytes": 131872,
         "shm_bytes": 32768,
-        "total_bytes": 152256
+        "total_bytes": 168736
       },
       "file_growth_bytes": 0
     },
@@ -195,61 +195,61 @@
       "repetition": 3,
       "waiters": 0,
       "requested_duration_ms": 1000,
-      "actual_wall_ms": 1000.241277,
-      "process_cpu": {
-        "available": true,
-        "user_ms": 0.096,
-        "system_ms": 0.054,
-        "total_ms": 0.15,
-        "percent_of_one_core": 0.014996381718008224
-      },
-      "go_allocated_bytes": 768,
-      "go_allocations": 11,
-      "gc_count": 0,
-      "configured_poll_interval_ms": 100,
-      "waits_finished": 0,
-      "before_files": {
-        "main_bytes": 4096,
-        "wal_bytes": 115392,
-        "shm_bytes": 32768,
-        "total_bytes": 152256
-      },
-      "after_files": {
-        "main_bytes": 4096,
-        "wal_bytes": 115392,
-        "shm_bytes": 32768,
-        "total_bytes": 152256
-      },
-      "file_growth_bytes": 0
-    },
-    {
-      "repetition": 1,
-      "waiters": 1,
-      "requested_duration_ms": 1000,
-      "actual_wall_ms": 1000.48662,
+      "actual_wall_ms": 1000.151237,
       "process_cpu": {
         "available": true,
         "user_ms": 0,
-        "system_ms": 5.25,
-        "total_ms": 5.25,
-        "percent_of_one_core": 0.5247446487590209
+        "system_ms": 0.221,
+        "total_ms": 0.221,
+        "percent_of_one_core": 0.02209665816770869
       },
-      "go_allocated_bytes": 42024,
-      "go_allocations": 1175,
+      "go_allocated_bytes": 768,
+      "go_allocations": 11,
+      "gc_count": 0,
+      "configured_poll_interval_ms": 100,
+      "waits_finished": 0,
+      "before_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 131872,
+        "shm_bytes": 32768,
+        "total_bytes": 168736
+      },
+      "after_files": {
+        "main_bytes": 4096,
+        "wal_bytes": 131872,
+        "shm_bytes": 32768,
+        "total_bytes": 168736
+      },
+      "file_growth_bytes": 0
+    },
+    {
+      "repetition": 1,
+      "waiters": 1,
+      "requested_duration_ms": 1000,
+      "actual_wall_ms": 1001.126664,
+      "process_cpu": {
+        "available": true,
+        "user_ms": 3.22,
+        "system_ms": 1.749,
+        "total_ms": 4.969,
+        "percent_of_one_core": 0.49634079069938747
+      },
+      "go_allocated_bytes": 39960,
+      "go_allocations": 965,
       "gc_count": 0,
       "configured_poll_interval_ms": 100,
       "waits_finished": 1,
       "before_files": {
         "main_bytes": 4096,
-        "wal_bytes": 115392,
+        "wal_bytes": 131872,
         "shm_bytes": 32768,
-        "total_bytes": 152256
+        "total_bytes": 168736
       },
       "after_files": {
         "main_bytes": 4096,
-        "wal_bytes": 115392,
+        "wal_bytes": 131872,
         "shm_bytes": 32768,
-        "total_bytes": 152256
+        "total_bytes": 168736
       },
       "file_growth_bytes": 0
     },
@@ -257,30 +257,30 @@
       "repetition": 2,
       "waiters": 1,
       "requested_duration_ms": 1000,
-      "actual_wall_ms": 1000.151973,
+      "actual_wall_ms": 1000.856509,
       "process_cpu": {
         "available": true,
-        "user_ms": 3.488,
-        "system_ms": 1.744,
-        "total_ms": 5.232,
-        "percent_of_one_core": 0.5231204998082827
+        "user_ms": 1.592,
+        "system_ms": 3.185,
+        "total_ms": 4.777,
+        "percent_of_one_core": 0.47729119579518064
       },
-      "go_allocated_bytes": 42272,
-      "go_allocations": 1169,
+      "go_allocated_bytes": 41600,
+      "go_allocations": 967,
       "gc_count": 0,
       "configured_poll_interval_ms": 100,
       "waits_finished": 1,
       "before_files": {
         "main_bytes": 4096,
-        "wal_bytes": 115392,
+        "wal_bytes": 131872,
         "shm_bytes": 32768,
-        "total_bytes": 152256
+        "total_bytes": 168736
       },
       "after_files": {
         "main_bytes": 4096,
-        "wal_bytes": 115392,
+        "wal_bytes": 131872,
         "shm_bytes": 32768,
-        "total_bytes": 152256
+        "total_bytes": 168736
       },
       "file_growth_bytes": 0
     },
@@ -288,30 +288,30 @@
       "repetition": 3,
       "waiters": 1,
       "requested_duration_ms": 1000,
-      "actual_wall_ms": 1001.210446,
+      "actual_wall_ms": 1000.905945,
       "process_cpu": {
         "available": true,
-        "user_ms": 5.731,
-        "system_ms": 1.212,
-        "total_ms": 6.943,
-        "percent_of_one_core": 0.6934606033864733
+        "user_ms": 3.599,
+        "system_ms": 1.386,
+        "total_ms": 4.985,
+        "percent_of_one_core": 0.49804879518424683
       },
-      "go_allocated_bytes": 41672,
-      "go_allocations": 1174,
+      "go_allocated_bytes": 40216,
+      "go_allocations": 964,
       "gc_count": 0,
       "configured_poll_interval_ms": 100,
       "waits_finished": 1,
       "before_files": {
         "main_bytes": 4096,
-        "wal_bytes": 115392,
+        "wal_bytes": 131872,
         "shm_bytes": 32768,
-        "total_bytes": 152256
+        "total_bytes": 168736
       },
       "after_files": {
         "main_bytes": 4096,
-        "wal_bytes": 115392,
+        "wal_bytes": 131872,
         "shm_bytes": 32768,
-        "total_bytes": 152256
+        "total_bytes": 168736
       },
       "file_growth_bytes": 0
     },
@@ -319,30 +319,30 @@
       "repetition": 1,
       "waiters": 100,
       "requested_duration_ms": 1000,
-      "actual_wall_ms": 1000.598673,
+      "actual_wall_ms": 1000.673624,
       "process_cpu": {
         "available": true,
-        "user_ms": 9.699,
-        "system_ms": 3.658,
-        "total_ms": 13.357,
-        "percent_of_one_core": 1.3349008309148538
+        "user_ms": 9.592,
+        "system_ms": 7.269,
+        "total_ms": 16.861,
+        "percent_of_one_core": 1.6849649671589626
       },
-      "go_allocated_bytes": 505064,
-      "go_allocations": 12077,
+      "go_allocated_bytes": 493720,
+      "go_allocations": 9989,
       "gc_count": 0,
       "configured_poll_interval_ms": 100,
       "waits_finished": 100,
       "before_files": {
         "main_bytes": 4096,
-        "wal_bytes": 115392,
+        "wal_bytes": 131872,
         "shm_bytes": 32768,
-        "total_bytes": 152256
+        "total_bytes": 168736
       },
       "after_files": {
         "main_bytes": 4096,
-        "wal_bytes": 115392,
+        "wal_bytes": 131872,
         "shm_bytes": 32768,
-        "total_bytes": 152256
+        "total_bytes": 168736
       },
       "file_growth_bytes": 0
     },
@@ -350,30 +350,30 @@
       "repetition": 2,
       "waiters": 100,
       "requested_duration_ms": 1000,
-      "actual_wall_ms": 1000.672435,
+      "actual_wall_ms": 1000.905407,
       "process_cpu": {
         "available": true,
-        "user_ms": 11.881,
-        "system_ms": 2.683,
-        "total_ms": 14.564,
-        "percent_of_one_core": 1.455421323762156
+        "user_ms": 12.991,
+        "system_ms": 3.038,
+        "total_ms": 16.029,
+        "percent_of_one_core": 1.6014500359273212
       },
-      "go_allocated_bytes": 499320,
-      "go_allocations": 12069,
+      "go_allocated_bytes": 520736,
+      "go_allocations": 10051,
       "gc_count": 0,
       "configured_poll_interval_ms": 100,
       "waits_finished": 100,
       "before_files": {
         "main_bytes": 4096,
-        "wal_bytes": 115392,
+        "wal_bytes": 131872,
         "shm_bytes": 32768,
-        "total_bytes": 152256
+        "total_bytes": 168736
       },
       "after_files": {
         "main_bytes": 4096,
-        "wal_bytes": 115392,
+        "wal_bytes": 131872,
         "shm_bytes": 32768,
-        "total_bytes": 152256
+        "total_bytes": 168736
       },
       "file_growth_bytes": 0
     },
@@ -381,30 +381,30 @@
       "repetition": 3,
       "waiters": 100,
       "requested_duration_ms": 1000,
-      "actual_wall_ms": 1001.244927,
+      "actual_wall_ms": 1001.249425,
       "process_cpu": {
         "available": true,
-        "user_ms": 12.863,
-        "system_ms": 0,
-        "total_ms": 12.863,
-        "percent_of_one_core": 1.2847006414844986
+        "user_ms": 9.322,
+        "system_ms": 6.231,
+        "total_ms": 15.553,
+        "percent_of_one_core": 1.5533591941888008
       },
-      "go_allocated_bytes": 503296,
-      "go_allocations": 12169,
+      "go_allocated_bytes": 519728,
+      "go_allocations": 10039,
       "gc_count": 0,
       "configured_poll_interval_ms": 100,
       "waits_finished": 100,
       "before_files": {
         "main_bytes": 4096,
-        "wal_bytes": 115392,
+        "wal_bytes": 131872,
         "shm_bytes": 32768,
-        "total_bytes": 152256
+        "total_bytes": 168736
       },
       "after_files": {
         "main_bytes": 4096,
-        "wal_bytes": 115392,
+        "wal_bytes": 131872,
         "shm_bytes": 32768,
-        "total_bytes": 152256
+        "total_bytes": 168736
       },
       "file_growth_bytes": 0
     }
