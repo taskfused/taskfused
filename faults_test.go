@@ -44,7 +44,7 @@ func installFault(t *testing.T, s *Store, target, kind string) func() {
 func storedSnapshot(t *testing.T, s *Store) string {
 	t.Helper()
 	result := map[string][][]any{}
-	for _, table := range []string{"operations", "attempts", "events", "retry_actions", "result_retention", "namespace_limits", "sqlite_sequence"} {
+	for _, table := range []string{"operations", "attempts", "events", "retry_actions", "result_retention", "namespace_limits", "identity_expiry", "sqlite_sequence"} {
 		rows, err := s.db.Query("SELECT * FROM " + table + " ORDER BY 1,2")
 		if err != nil {
 			t.Fatal(err)

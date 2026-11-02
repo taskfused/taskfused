@@ -200,3 +200,34 @@ func migrateV5(ctx context.Context, tx *sql.Tx) error {
 	_, err := tx.ExecContext(ctx, `PRAGMA user_version=5;`)
 	return err
 }
+
+// expiryTimeFormat is the fixed-width, millisecond form identity_expiry keeps,
+// written by SQLite's strftime('%Y-%m-%dT%H:%M:%fZ') in the triggers below.
+const expiryTimeFormat = "2006-01-02T15:04:05.000Z"
+
+// Version 6 adds per-namespace identity retention. identity_expiry holds one
+// row per terminal operation with its completion time, kept by triggers on
+// every state change, so no code path that finishes or reopens work can miss
+// it. An unparsable completion time is filed as never expiring.
+func migrateV6(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, `
+ALTER TABLE namespace_limits ADD COLUMN identity_retention_ns INTEGER NOT NULL DEFAULT 0 CHECK(identity_retention_ns>=0);
+CREATE TABLE identity_expiry(operation_id TEXT PRIMARY KEY REFERENCES operations(id),namespace TEXT NOT NULL,terminal_at TEXT NOT NULL);
+CREATE INDEX identity_expiry_cutoff ON identity_expiry(namespace,terminal_at,operation_id);
+CREATE TRIGGER identity_expiry_terminal AFTER UPDATE OF state,completed_at ON operations
+ WHEN NEW.state IN ('succeeded','failed','canceled') AND NEW.completed_at IS NOT NULL
+BEGIN
+ INSERT OR REPLACE INTO identity_expiry(operation_id,namespace,terminal_at)
+  VALUES(NEW.id,NEW.namespace,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',NEW.completed_at),'9999-12-31T23:59:59.999Z'));
+END;
+CREATE TRIGGER identity_expiry_reopened AFTER UPDATE OF state ON operations
+ WHEN NEW.state NOT IN ('succeeded','failed','canceled')
+BEGIN
+ DELETE FROM identity_expiry WHERE operation_id=NEW.id;
+END;
+INSERT INTO identity_expiry(operation_id,namespace,terminal_at)
+ SELECT id,namespace,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',completed_at),'9999-12-31T23:59:59.999Z')
+ FROM operations WHERE state IN ('succeeded','failed','canceled') AND completed_at IS NOT NULL;
+PRAGMA user_version=6;`)
+	return err
+}

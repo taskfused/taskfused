@@ -28,7 +28,7 @@ func main() {
 
 func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: taskfused <submit|get|attempts|events|wait|cancel|retry|usage|set-limits|prune-results|serve|version> [flags]; use -h after a command")
+		return fmt.Errorf("usage: taskfused <submit|get|attempts|events|wait|cancel|retry|usage|set-limits|prune-results|expire-identities|serve|version> [flags]; use -h after a command")
 	}
 	if args[0] == "version" {
 		if len(args) != 1 {
@@ -40,7 +40,7 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		return serve(ctx, args[1:], errOut)
 	}
 	switch args[0] {
-	case "submit", "get", "attempts", "events", "wait", "cancel", "retry", "usage", "set-limits", "prune-results":
+	case "submit", "get", "attempts", "events", "wait", "cancel", "retry", "usage", "set-limits", "prune-results", "expire-identities":
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
@@ -57,6 +57,7 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	var limit, expectedAttempts, additionalAttempts int
 	var actionKey, before string
 	var maxOperations, maxActive int64
+	var identityRetention time.Duration
 	var cutoff time.Time
 	if args[0] == "submit" {
 		fs.StringVar(&handler, "handler", "", "required handler name")
@@ -69,9 +70,12 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	} else if args[0] == "set-limits" {
 		fs.Int64Var(&maxOperations, "max-operations", 0, "maximum retained identities; zero unlimited (replaces prior policy)")
 		fs.Int64Var(&maxActive, "max-active", 0, "maximum queued/running/retry_wait operations; zero unlimited")
+		fs.DurationVar(&identityRetention, "identity-retention", 0, "how long finished operations keep their identity (e.g. 720h); zero or omitted keeps them forever (replaces prior policy)")
 	} else if args[0] == "prune-results" {
 		fs.StringVar(&before, "before", "", "required exclusive completion cutoff (RFC3339)")
 		fs.IntVar(&limit, "limit", 50, "maximum succeeded results to remove (1–200); irreversible")
+	} else if args[0] == "expire-identities" {
+		fs.IntVar(&limit, "limit", 50, "maximum identities to delete (1–200); irreversible")
 	} else if args[0] != "usage" {
 		fs.StringVar(&id, "id", "", "required operation ID")
 		if args[0] == "events" {
@@ -99,7 +103,7 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if *namespace == "" {
 		return fmt.Errorf("-namespace is required")
 	}
-	if args[0] != "submit" && args[0] != "usage" && args[0] != "set-limits" && args[0] != "prune-results" && id == "" {
+	if args[0] != "submit" && args[0] != "usage" && args[0] != "set-limits" && args[0] != "prune-results" && args[0] != "expire-identities" && id == "" {
 		return fmt.Errorf("-id is required")
 	}
 	if args[0] == "submit" && (handler == "" || version == "" || key == "") {
@@ -117,9 +121,12 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		if !supplied["max-operations"] || !supplied["max-active"] {
 			return fmt.Errorf("-max-operations and -max-active are both required; zero means unlimited")
 		}
-		if maxOperations < 0 || maxActive < 0 {
+		if maxOperations < 0 || maxActive < 0 || identityRetention < 0 {
 			return fmt.Errorf("limits must be nonnegative")
 		}
+	}
+	if args[0] == "expire-identities" && (limit < 1 || limit > taskfused.MaxExpireBatch) {
+		return fmt.Errorf("-limit must be 1–200")
 	}
 	if args[0] == "prune-results" {
 		var err error
@@ -139,7 +146,7 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	encoder := json.NewEncoder(out)
 	encoder.SetIndent("", "  ")
 	if args[0] == "set-limits" {
-		limits := taskfused.Limits{MaxOperations: maxOperations, MaxActive: maxActive}
+		limits := taskfused.Limits{MaxOperations: maxOperations, MaxActive: maxActive, IdentityRetention: identityRetention}
 		if err := store.SetLimits(ctx, *namespace, limits); err != nil {
 			return err
 		}
@@ -147,6 +154,13 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	}
 	if args[0] == "usage" {
 		result, err := store.Usage(ctx, *namespace)
+		if err != nil {
+			return err
+		}
+		return encoder.Encode(result)
+	}
+	if args[0] == "expire-identities" {
+		result, err := store.ExpireIdentities(ctx, taskfused.ExpireRequest{Namespace: *namespace, Limit: limit})
 		if err != nil {
 			return err
 		}
@@ -216,6 +230,7 @@ func serve(ctx context.Context, args []string, errOut io.Writer) error {
 	fs.SetOutput(errOut)
 	path := fs.String("db", "taskfused.db", "local SQLite database path")
 	address := fs.String("listen", "127.0.0.1:8080", "literal loopback IP:port only")
+	expireEvery := fs.Duration("expire-every", time.Minute, "how often to delete identities past their namespace's retention; 0 turns it off")
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return nil
@@ -224,6 +239,9 @@ func serve(ctx context.Context, args []string, errOut io.Writer) error {
 	}
 	if fs.NArg() != 0 {
 		return fmt.Errorf("unexpected positional arguments")
+	}
+	if *expireEvery < 0 {
+		return fmt.Errorf("-expire-every must not be negative")
 	}
 	listener, err := localhttp.Listen(*address)
 	if err != nil {
@@ -236,5 +254,40 @@ func serve(ctx context.Context, args []string, errOut io.Writer) error {
 	}
 	defer store.Close()
 	fmt.Fprintln(errOut, "TaskFused local status: http://"+listener.Addr().String())
-	return localhttp.Serve(ctx, store, listener)
+	if *expireEvery == 0 {
+		return localhttp.Serve(ctx, store, listener)
+	}
+	// Expiry stops before the store closes: Serve returns only after shutdown,
+	// then cancelling expireCtx ends the loop and the deferred Close runs last.
+	expireCtx, stopExpiry := context.WithCancel(ctx)
+	expired := make(chan struct{})
+	go func() {
+		defer close(expired)
+		runExpiry(expireCtx, store, *expireEvery, errOut)
+	}()
+	err = localhttp.Serve(ctx, store, listener)
+	stopExpiry()
+	<-expired
+	return err
+}
+
+// runExpiry calls ExpireDue once right away and then every interval, writing a
+// line when identities are removed or the attempt fails.
+func runExpiry(ctx context.Context, store *taskfused.Store, every time.Duration, errOut io.Writer) {
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		n, err := store.ExpireDue(ctx)
+		switch {
+		case err != nil && ctx.Err() == nil:
+			fmt.Fprintln(errOut, "TaskFused identity expiry failed:", err)
+		case n > 0:
+			fmt.Fprintf(errOut, "TaskFused expired %d identities\n", n)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }

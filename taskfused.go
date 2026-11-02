@@ -30,7 +30,7 @@ const Version = "0.1.0"
 const MaxInputBytes = 1024 * 1024
 
 // SchemaVersion is the highest local SQLite schema understood by this build.
-const SchemaVersion = 5
+const SchemaVersion = 6
 
 const schemaVersion = SchemaVersion
 
@@ -239,6 +239,11 @@ PRAGMA user_version = 1;`); err != nil {
 	}
 	if version < 5 {
 		if err := migrateV5(ctx, tx); err != nil {
+			return err
+		}
+	}
+	if version < 6 {
+		if err := migrateV6(ctx, tx); err != nil {
 			return err
 		}
 	}

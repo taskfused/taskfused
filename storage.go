@@ -15,9 +15,14 @@ var ErrCapacity = errors.New("namespace admission limit reached")
 // Limits are durable namespace admission limits; zero means unlimited. Lowering
 // them never cancels existing work. All retained identities count as operations.
 // These are logical counts, not a database file-size or filesystem quota.
+//
+// IdentityRetention is how long a finished operation (succeeded, failed or
+// canceled) keeps its identity after completion; zero keeps it forever.
+// ExpireIdentities deletes expired ones, after which the same key is new work.
 type Limits struct {
-	MaxOperations int64 `json:"max_operations"`
-	MaxActive     int64 `json:"max_active"`
+	MaxOperations     int64         `json:"max_operations"`
+	MaxActive         int64         `json:"max_active"`
+	IdentityRetention time.Duration `json:"identity_retention"`
 }
 
 func validateNamespace(namespace string) error {
@@ -30,10 +35,10 @@ func (s *Store) SetLimits(ctx context.Context, namespace string, limits Limits) 
 	if err := validateNamespace(namespace); err != nil {
 		return err
 	}
-	if limits.MaxOperations < 0 || limits.MaxActive < 0 {
+	if limits.MaxOperations < 0 || limits.MaxActive < 0 || limits.IdentityRetention < 0 {
 		return fmt.Errorf("%w: limits must be nonnegative", ErrInvalid)
 	}
-	_, err := s.db.ExecContext(ctx, `INSERT INTO namespace_limits(namespace,max_operations,max_active) VALUES(?,?,?) ON CONFLICT(namespace) DO UPDATE SET max_operations=excluded.max_operations,max_active=excluded.max_active`, namespace, limits.MaxOperations, limits.MaxActive)
+	_, err := s.db.ExecContext(ctx, `INSERT INTO namespace_limits(namespace,max_operations,max_active,identity_retention_ns) VALUES(?,?,?,?) ON CONFLICT(namespace) DO UPDATE SET max_operations=excluded.max_operations,max_active=excluded.max_active,identity_retention_ns=excluded.identity_retention_ns`, namespace, limits.MaxOperations, limits.MaxActive, int64(limits.IdentityRetention))
 	return err
 }
 
@@ -89,15 +94,18 @@ func (s *Store) Usage(ctx context.Context, namespace string) (Usage, error) {
 	}
 	var u Usage
 	// One SELECT gives a consistent SQLite read snapshot without reserving a writer.
+	var retention int64
 	err := s.db.QueryRowContext(ctx, `SELECT
  COALESCE((SELECT max_operations FROM namespace_limits WHERE namespace=?1),0),
  COALESCE((SELECT max_active FROM namespace_limits WHERE namespace=?1),0),
+ COALESCE((SELECT identity_retention_ns FROM namespace_limits WHERE namespace=?1),0),
  count(*),COALESCE(sum(state IN ('queued','running','retry_wait')),0),
  COALESCE(sum(length(input)),0),COALESCE(sum(length(result)),0),COALESCE(sum(result_pruned),0),
  (SELECT count(*) FROM attempts a JOIN operations o ON o.id=a.operation_id WHERE o.namespace=?1),
  (SELECT count(*) FROM events e JOIN operations o ON o.id=e.operation_id WHERE o.namespace=?1),
  (SELECT count(*) FROM retry_actions r JOIN operations o ON o.id=r.operation_id WHERE o.namespace=?1)
- FROM operations WHERE namespace=?1`, namespace).Scan(&u.Limits.MaxOperations, &u.Limits.MaxActive, &u.Operations, &u.Active, &u.InputBytes, &u.ResultBytes, &u.PrunedResults, &u.Attempts, &u.Events, &u.RetryActions)
+ FROM operations WHERE namespace=?1`, namespace).Scan(&u.Limits.MaxOperations, &u.Limits.MaxActive, &retention, &u.Operations, &u.Active, &u.InputBytes, &u.ResultBytes, &u.PrunedResults, &u.Attempts, &u.Events, &u.RetryActions)
+	u.Limits.IdentityRetention = time.Duration(retention)
 	return u, err
 }
 
@@ -170,4 +178,132 @@ func (s *Store) PruneResults(ctx context.Context, r PruneRequest) (PruneResult, 
 		return PruneResult{}, err
 	}
 	return result, nil
+}
+
+// MaxExpireBatch is the most identities one ExpireIdentities call removes.
+const MaxExpireBatch = 200
+
+type ExpireRequest struct {
+	Namespace string
+	Limit     int // 1–200; zero defaults to 50.
+}
+
+type ExpireResult struct {
+	// OperationIDs are the operations deleted, oldest completion first.
+	OperationIDs []string `json:"operation_ids"`
+	// Cutoff is the exclusive completion-time cutoff used (now minus the
+	// namespace's IdentityRetention); nil when the namespace keeps identities
+	// forever and nothing was looked at.
+	Cutoff *time.Time `json:"cutoff,omitempty"`
+}
+
+// ExpireIdentities deletes, in one atomic batch, finished operations
+// (succeeded, failed or canceled) whose completion is older than the
+// namespace's IdentityRetention, with their attempts, events, retry actions and
+// result-retention rows. Their identities are free again: submitting the same
+// key afterwards creates new work, and joining or replay protection for the old
+// operation is gone. Queued, running and retry_wait work is never touched. With
+// no retention set it does nothing. Repeated calls drain what is due. SQLite can
+// reuse the freed pages; this does not shrink the file.
+func (s *Store) ExpireIdentities(ctx context.Context, r ExpireRequest) (ExpireResult, error) {
+	if err := validateNamespace(r.Namespace); err != nil {
+		return ExpireResult{}, err
+	}
+	if r.Limit < 0 || r.Limit > MaxExpireBatch {
+		return ExpireResult{}, fmt.Errorf("%w: limit 1–200 (zero defaults to 50)", ErrInvalid)
+	}
+	if r.Limit == 0 {
+		r.Limit = 50
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return ExpireResult{}, err
+	}
+	defer tx.Rollback()
+	var retention int64
+	err = tx.QueryRowContext(ctx, `SELECT identity_retention_ns FROM namespace_limits WHERE namespace=?`, r.Namespace).Scan(&retention)
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && retention == 0) {
+		return ExpireResult{OperationIDs: []string{}}, nil
+	}
+	if err != nil {
+		return ExpireResult{}, err
+	}
+	cutoff := s.now().UTC().Add(-time.Duration(retention))
+	result := ExpireResult{OperationIDs: []string{}, Cutoff: &cutoff}
+	if cutoff.Year() < 1 {
+		return result, nil
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT e.operation_id FROM identity_expiry e JOIN operations o ON o.id=e.operation_id WHERE e.namespace=? AND e.terminal_at<? AND o.state IN ('succeeded','failed','canceled') ORDER BY e.terminal_at,e.operation_id LIMIT ?`, r.Namespace, cutoff.Format(expiryTimeFormat), r.Limit)
+	if err != nil {
+		return ExpireResult{}, err
+	}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return ExpireResult{}, err
+		}
+		result.OperationIDs = append(result.OperationIDs, id)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return ExpireResult{}, err
+	}
+	for _, id := range result.OperationIDs {
+		for _, statement := range []string{
+			`DELETE FROM events WHERE operation_id=?`,
+			`DELETE FROM attempts WHERE operation_id=?`,
+			`DELETE FROM retry_actions WHERE operation_id=?`,
+			`DELETE FROM result_retention WHERE operation_id=?`,
+			`DELETE FROM identity_expiry WHERE operation_id=?`,
+			`DELETE FROM operations WHERE id=?`,
+		} {
+			if _, err := tx.ExecContext(ctx, statement, id); err != nil {
+				return ExpireResult{}, err
+			}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return ExpireResult{}, err
+	}
+	return result, nil
+}
+
+// ExpireDue runs ExpireIdentities in batches of MaxExpireBatch for every
+// namespace with an IdentityRetention until nothing more is due, each batch
+// in its own transaction. It returns how many identities were removed.
+func (s *Store) ExpireDue(ctx context.Context) (int, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT namespace FROM namespace_limits WHERE identity_retention_ns>0 ORDER BY namespace`)
+	if err != nil {
+		return 0, err
+	}
+	var namespaces []string
+	for rows.Next() {
+		var ns string
+		if err := rows.Scan(&ns); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		namespaces = append(namespaces, ns)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return 0, err
+	}
+	removed := 0
+	for _, ns := range namespaces {
+		for {
+			r, err := s.ExpireIdentities(ctx, ExpireRequest{Namespace: ns, Limit: MaxExpireBatch})
+			if err != nil {
+				return removed, err
+			}
+			removed += len(r.OperationIDs)
+			if len(r.OperationIDs) < MaxExpireBatch {
+				break
+			}
+		}
+	}
+	return removed, nil
 }
