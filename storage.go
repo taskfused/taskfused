@@ -234,9 +234,11 @@ func (s *Store) ExpireIdentities(ctx context.Context, r ExpireRequest) (ExpireRe
 		return result, nil
 	}
 	// An operation canceled while running may still have a worker holding an
-	// unexpired lease; it keeps the record until that lease ends, so the
-	// worker's Renew, Complete or Fail still reports ErrOperationCanceled.
-	rows, err := tx.QueryContext(ctx, `SELECT e.operation_id FROM identity_expiry e JOIN operations o ON o.id=e.operation_id WHERE e.namespace=? AND e.terminal_at<? AND o.state IN ('succeeded','failed','canceled') AND NOT EXISTS (SELECT 1 FROM attempts a WHERE a.operation_id=o.id AND a.lease_until_ns>?) ORDER BY e.terminal_at,e.operation_id LIMIT ?`, r.Namespace, cutoff.Format(expiryTimeFormat), s.now().UTC().UnixNano(), r.Limit)
+	// unexpired lease (its attempt is canceled, the lease time unchanged); it
+	// keeps the record until that lease ends, so the worker's Renew, Complete
+	// or Fail still reports ErrOperationCanceled. Attempts that finished
+	// themselves have no worker left to tell.
+	rows, err := tx.QueryContext(ctx, `SELECT e.operation_id FROM identity_expiry e JOIN operations o ON o.id=e.operation_id WHERE e.namespace=? AND e.terminal_at<? AND o.state IN ('succeeded','failed','canceled') AND NOT EXISTS (SELECT 1 FROM attempts a WHERE a.operation_id=o.id AND a.state IN ('running','canceled') AND a.lease_until_ns>?) ORDER BY e.terminal_at,e.operation_id LIMIT ?`, r.Namespace, cutoff.Format(expiryTimeFormat), s.now().UTC().UnixNano(), r.Limit)
 	if err != nil {
 		return ExpireResult{}, err
 	}
